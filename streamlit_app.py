@@ -8,10 +8,11 @@ import zoneinfo
 import pandas as pd
 import streamlit as st
 
+from vedic import insights as ins
 from vedic import narratives as nar
 from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sign_table
 from vedic.chart import build_chart, geocode
-from vedic.constants import AYANAMSHAS, DASHA_YEARS, HOUSE_INFO, SIGNS
+from vedic.constants import AYANAMSHAS, HOUSE_INFO, SIGNS, ordinal
 from vedic.dasha import active_periods, dasha_balance, periods_in_window, sub_periods, vimshottari
 from vedic.plots import bav_heatmap, sav_figure, strength_figure, timeline_figure, to_local
 from vedic.report import build_report
@@ -140,6 +141,18 @@ with tabs[1]:
     st.markdown("> 💡 Each sign is divided into **Nakshatras** (lunar mansions) of 13°20'. They reveal instincts, "
                 "sub-talents and planetary motivations. **D9** (Navamsha) shows inner strength and partnerships; "
                 "**D10** (Dashamsha) shows career.")
+    st.subheader("🧭 What this means for you")
+    for line in ins.planets_highlights(chart):
+        st.markdown(f"- {line}")
+
+    st.subheader("Planet by planet")
+    st.caption("Open a planet to see what its sign, house, nakshatra and lordship mean in your chart.")
+    for n, p in P.items():
+        label = f"{n}{' ℞' if p['retrograde'] else ''} · {p['sign']} · {ordinal(p['house'])} house · {p['nakshatra']}"
+        with st.expander(label):
+            st.markdown(ins.planet_story(chart, av, n))
+
+    st.subheader("Reference table")
     rows = [{
         "Planet": n + (" ℞" if p["retrograde"] else ""), "Sign": p["sign"], "Degree": f"{p['degree']:.2f}°",
         "House": p["house"], "Nakshatra": p["nakshatra"], "Pada": p["pada"], "Nak. Lord": p["nakshatra_lord"],
@@ -151,6 +164,7 @@ with tabs[1]:
     st.dataframe(pd.DataFrame([{"Role": k["role"], "Planet": k["planet"], "Sign": k["sign"],
                                 "Degree": f"{k['degree']:.2f}°", "Meaning": k["meaning"]} for k in chart["karakas"]]),
                  use_container_width=True, hide_index=True)
+    st.markdown(ins.karaka_insight(chart))
 
 # --------------------------------------------------------------------------------------
 # Dasha
@@ -161,8 +175,17 @@ with tabs[2]:
                    f"(until {fmt_date(ad_now['end'])}) · {pd_now['lord']} Pratyantardasha (until {fmt_date(pd_now['end'])})")
     st.caption(f"Dasha balance at birth: {schedule[0]['lord']} {dasha_balance(chart, schedule):.2f} years "
                f"(Moon in {P['Moon']['nakshatra']}).")
+    st.markdown("> 💡 **Vimshottari Dasha** divides life into planetary chapters. The **Mahadasha** lord sets the "
+                "overall theme for years; the **Antardasha** lord decides which part of that theme is active now. "
+                "Each lord gives results through the house it sits in and the houses it rules in your chart, and how "
+                "much it can deliver depends on the SAV of its sign.")
+    if md_now:
+        st.subheader("🧭 Your current period")
+        st.markdown(ins.dasha_insight(chart, av, md_now, ad_now))
+        st.markdown("**Coming up**")
+        st.markdown(ins.upcoming_antardashas(chart, av, schedule, md_now, ad_now))
 
-    st.subheader("Dasha Narrative")
+    st.subheader("Explore any period")
     md_labels = [f"{md['lord']} ({md['start'].year}–{md['end'].year})" for md in schedule]
     md_default = schedule.index(md_now) if md_now else 0
     c1, c2 = st.columns(2)
@@ -176,13 +199,7 @@ with tabs[2]:
     axis, tone, axis_text = nar.dasha_axis(chart, md_sel["lord"], ad_sel["lord"])
     {"success": st.success, "warning": st.warning, "info": st.info}[tone](
         f"**{md_sel['lord']} / {ad_sel['lord']}: {axis}.** {axis_text}")
-    st.markdown(f"#### 1. Overarching theme ({md_sel['lord']} Mahadasha, {DASHA_YEARS[md_sel['lord']]} years)")
-    st.info(nar.DASHA_DESCRIPTIONS[md_sel["lord"]])
-    st.markdown(f"#### 2. Sub-period manifestation ({ad_sel['lord']} Antardasha)")
-    st.success(nar.DASHA_DESCRIPTIONS[ad_sel["lord"]])
-    st.markdown(f"#### 3. Interplay: {axis}")
-    st.write(f"In your chart {md_sel['lord']} sits in {P[md_sel['lord']]['sign']} (house {P[md_sel['lord']]['house']}) "
-             f"and {ad_sel['lord']} in {P[ad_sel['lord']]['sign']} (house {P[ad_sel['lord']]['house']}). {axis_text}")
+    st.markdown(ins.dasha_insight(chart, av, md_sel, ad_sel))
 
     with st.expander("Pratyantardashas in this Antardasha"):
         st.dataframe(pd.DataFrame([{"Pratyantardasha": p["lord"], "Starts": fmt_date(p["start"]),
@@ -203,6 +220,9 @@ with tabs[3]:
     st.markdown("> 💡 **Sarvashtakavarga (SAV)** totals the benefic points every planet gives each sign "
                 "(337 in all; 28 is average). Higher points mean that life area — and planets transiting it — "
                 "deliver more easily.")
+    st.subheader("🧭 What this means for you")
+    for line in ins.ashtakavarga_insight(chart, av, sav_house):
+        st.markdown(f"- {line}")
     st.plotly_chart(sav_figure(sav_house), use_container_width=True)
 
     house_df = pd.DataFrame([{
@@ -224,6 +244,9 @@ with tabs[3]:
     d[3].metric("8th House", f"{s[7]} pts", "Controlled risk" if s[7] < 28 else "Elevated risk", delta_color="off")
 
     st.plotly_chart(bav_heatmap(av, chart["asc_sign_idx"]), use_container_width=True)
+    st.caption("How to read: each row is one planet's own scorecard (Bhinna Ashtakavarga). A bright cell (5–8) means "
+               "that planet gives good results when it transits that house; a dark cell (0–3) means its transit there "
+               "is weak. The Timing Engine tab uses these numbers.")
     with st.expander("BAV / SAV table by sign"):
         st.dataframe(pd.DataFrame(sign_table(av)), use_container_width=True, hide_index=True)
 
@@ -243,6 +266,10 @@ with tabs[4]:
     zones = sorted(zoneinfo.available_timezones())
     show_tz = st.selectbox("Show times in", zones, index=zones.index(tz_name))
 
+    st.subheader("🧭 Right now")
+    for line in ins.current_transits(chart, av, now):
+        st.markdown(f"- {line}")
+
     win_start = dt.datetime.combine(start_date, dt.time()).replace(tzinfo=zoneinfo.ZoneInfo(show_tz)) \
         .astimezone(dt.timezone.utc).replace(tzinfo=None)
     win_end = win_start + dt.timedelta(days=round(months * 30.44))
@@ -256,6 +283,14 @@ with tabs[4]:
 
     fig = timeline_figure(dasha_rows, segments, show_tz, (win_start, win_end))
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("How to read: the top three rows show which Dasha periods are running. Below, each bar is a "
+               "planet crossing one kakshya. Solid bars carry a bindu (the planet can deliver); faded bars are muted. "
+               "Hover any bar for the house, scores and rating. The best moments are when a strong transit window "
+               "falls in a house the current Dasha lords are connected to.")
+
+    upcoming = ins.upcoming_strong(segments, now)
+    st.subheader("⭐ Next strong windows")
+    st.markdown(upcoming or "No strong windows in this range. Try a longer span or more planets.")
 
     st.subheader("Windows")
     only_strong = st.toggle("Strong windows only", value=True)
@@ -293,4 +328,7 @@ with tabs[5]:
                 "not the full six-fold Shadbala.")
     strength = dignity_strength(chart)
     st.plotly_chart(strength_figure(strength), use_container_width=True)
+    st.subheader("🧭 What this means for you")
+    for line in ins.strength_insight(chart, strength):
+        st.markdown(f"- {line}")
     st.dataframe(pd.DataFrame(strength), use_container_width=True, hide_index=True)
