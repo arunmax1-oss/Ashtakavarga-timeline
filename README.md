@@ -37,6 +37,7 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/yogas.py` | Yoga detection and the dignity strength score |
 | `vedic/narratives.py` | All interpretation text (edit wording here) |
 | `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each tab |
+| `vedic/aspects.py` | Combustion and planetary aspects (graha drishti) |
 | `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
 | `vedic/plots.py` | Plotly charts |
 | `vedic/report.py` | Downloadable HTML report |
@@ -52,5 +53,5 @@ for any assistant to edit without losing earlier work.
   and pada, D9, D10, Chara Karakas, Vimshottari Dasha, Ashtakavarga (classical BPHS tables), and
   transit Kakshya timing.
 - **Simplified:** the *Planet Strength* tab is a dignity + directional-strength score, not full
-  Shadbala; *Dhana Yoga* uses a simplified rule. Houses are whole-sign.
+  Shadbala; *Dhana Yoga* uses a simplified rule. Houses and aspects are whole-sign.
 - Interpretations are for reflection only.

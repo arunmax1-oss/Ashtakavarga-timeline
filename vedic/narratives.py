@@ -281,6 +281,11 @@ GLOSSARY = {
                  "after. A period of pressure, responsibility and maturing.",
     "Ashtama Shani / Ardhashtama Shani": "Saturn in the 8th / 4th sign from your Moon. Shorter periods of pressure "
                                          "(about 2½ years each).",
+    "Combust (Asta)": "A planet so close to the Sun that it is 'burnt' by its light. Its themes get overshadowed. "
+                      "Mercury is nearly always close to the Sun, so its combustion is treated lightly.",
+    "Aspect (Drishti)": "A planet's gaze on other signs. Every planet aspects the 7th sign from itself; Mars also "
+                        "the 4th and 8th, Jupiter the 5th and 9th, Saturn the 3rd and 10th. Jupiter's aspect protects; "
+                        "Saturn's and Mars's add pressure.",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
                  "Lahiri is the standard in India.",
     "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "

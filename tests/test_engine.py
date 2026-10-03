@@ -101,3 +101,18 @@ def test_remedies_are_explained_and_consistent():
         sav_house = [av["sav"][(c["asc_sign_idx"] + h) % 12] for h in range(12)]
         assert eighth_house_reading(sav_house[7])[0] in health_narrative(c, sav_house)
     assert len(GLOSSARY) >= 20
+
+
+def test_aspects_and_combustion():
+    from vedic.aspects import aspects_on, combustion, conjunctions, influences
+    p = CHART["planets"]
+    # 1985 chart: Saturn in Libra aspects the 3rd, 7th and 10th signs from it (Sagittarius, Aries, Cancer)
+    assert ("Saturn", 7) in aspects_on(CHART, "Moon")       # Moon in Aries
+    assert "Rahu" in conjunctions(CHART, "Moon")
+    assert ("Mars", 8) in aspects_on(CHART, "Jupiter")      # Mars in Gemini -> 8th is Capricorn
+    # Mars is 9.7 deg from the Sun (limit 17), Mercury 9.4 deg (limit 14); Jupiter is far away
+    assert combustion(CHART, "Mars") and combustion(CHART, "Mercury")
+    assert combustion(CHART, "Jupiter") is None and combustion(CHART, "Rahu") is None
+    # Rahu/Ketu aspects never count as malefic pressure, only their conjunctions
+    assert all("Rahu (" not in m or "same sign" in m for m in influences(CHART, "Venus")["malefic"])
+    assert p["Sun"]["sign"] == "Gemini"

@@ -3,10 +3,11 @@
 Every remedy is tied to a specific, computed chart fact, so the user can always see *why* it is shown.
 No Streamlit here: functions take computed data and return plain lists/dicts/Markdown.
 
-Not covered (the engine does not compute them yet): combustion, planetary aspects, full Shadbala.
+Not covered (the engine does not compute it yet): full Shadbala.
 """
 import datetime as dt
 
+from .aspects import combustion, influences
 from .chart import house_from, julian_day, planet_longitude, set_ayanamsha
 from .constants import CLASSICAL_PLANETS, ALL_PLANETS, SIGNS, ordinal
 from .insights import DUSTHANAS, KENDRAS, TRIKONAS, _domain, neecha_bhanga, ruled_houses
@@ -25,32 +26,58 @@ _SATURN_PHASES = {
 # Triggers
 # --------------------------------------------------------------------------------------
 def natal_flags(chart, av, planet):
-    """Reasons this planet needs support in the birth chart. Returns (reasons, priority or None)."""
+    """Reasons this planet needs support in the birth chart. Returns (reasons, priority or None).
+
+    Each trigger carries a weight: High (uncancelled debilitation), Medium, or Low. Two Medium triggers make
+    the planet High. Mitigating notes (Jupiter's protection) are listed but never count towards priority.
+    """
     p = chart["planets"][planet]
-    reasons, severe = [], False
+    triggers, notes = [], []
 
     if p["dignity"] == "Debilitated":
         if neecha_bhanga(chart, planet):
-            reasons.append(f"Debilitated in {p['sign']}, but the weakness is cancelled (Neecha Bhanga), so it improves with age")
+            triggers.append((f"Debilitated in {p['sign']}, but the weakness is cancelled (Neecha Bhanga), "
+                             "so it improves with age", "Low"))
         else:
-            reasons.append(f"Debilitated in {p['sign']} (its weakest sign)")
-            severe = True
+            triggers.append((f"Debilitated in {p['sign']} (its weakest sign)", "High"))
 
     # 8th and 12th are difficult for every planet. The 6th suits tough planets (Sun, Mars, Saturn, Rahu, Ketu)
     # and is only flagged for the gentle ones.
     if p["house"] in (8, 12) or (p["house"] == 6 and planet in NATURAL_BENEFICS):
-        reasons.append(f"Sits in your {ordinal(p['house'])} house ({_domain(p['house'])}), a difficult house")
+        triggers.append((f"Sits in your {ordinal(p['house'])} house ({_domain(p['house'])}), a difficult house", "Medium"))
 
     if planet in CLASSICAL_PLANETS:
         bav = av["bav"][planet][p["sign_idx"]]
         if bav <= 3:
-            reasons.append(f"Only {bav}/8 Ashtakavarga points in the sign it occupies (4 is average)")
+            triggers.append((f"Only {bav}/8 Ashtakavarga points in the sign it occupies (4 is average)", "Medium"))
 
-    if not reasons:
+    comb = combustion(chart, planet)
+    if comb:
+        mild = planet == "Mercury"
+        triggers.append((f"Combust: {comb['distance']:.1f}° from the Sun (limit {comb['orb']}°), so its themes are "
+                         "overshadowed by ego, authority or the father figure"
+                         + ("; Mercury is usually close to the Sun, so tradition treats this lightly" if mild else ""),
+                         "Low" if mild else "Medium"))
+
+    if planet not in ("Rahu", "Ketu"):
+        inf = influences(chart, planet)
+        pressure, shield = ", ".join(inf["malefic"]), ", ".join(inf["jupiter"])
+        if len(inf["malefic"]) >= 2 and not inf["jupiter"]:
+            triggers.append((f"Under combined pressure from {pressure}"
+                             + ("" if planet == "Jupiter" else ", with no protective aspect from Jupiter"), "Medium"))
+        elif inf["malefic"] and inf["jupiter"]:
+            notes.append(f"Mitigation: pressure from {pressure} is eased by {shield}")
+        elif inf["malefic"]:
+            notes.append(f"Also note: mild pressure from {pressure}")
+        elif inf["jupiter"]:
+            notes.append(f"Mitigation: protected by {shield}")
+
+    if not triggers:
         return [], None
-    only_cancelled = len(reasons) == 1 and "cancelled" in reasons[0]
-    priority = "High" if severe or len(reasons) >= 2 else "Low" if only_cancelled else "Medium"
-    return reasons, priority
+    weights = [w for _, w in triggers]
+    priority = ("High" if "High" in weights or weights.count("Medium") >= 2 else
+                "Medium" if "Medium" in weights else "Low")
+    return [r for r, _ in triggers] + notes, priority
 
 
 def gem_eligible(chart, planet):

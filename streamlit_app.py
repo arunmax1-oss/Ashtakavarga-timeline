@@ -362,8 +362,8 @@ with tabs[6]:
          "Nothing time-bound is flagged right now."),
         ("🌱 Lifelong", "lifelong",
          "Planets that are weak in the birth chart itself. These do not expire; small, steady habits work best.",
-         "No planet is flagged in your birth chart: none is debilitated, in the 8th or 12th house, or short of "
-         "Ashtakavarga points where it sits."),
+         "No planet is flagged in your birth chart: none is debilitated, combust, under combined malefic pressure, "
+         "in the 8th or 12th house, or short of Ashtakavarga points where it sits."),
     ]:
         st.subheader(heading)
         st.caption(intro)
@@ -380,9 +380,13 @@ with tabs[6]:
         st.markdown(
             "| Trigger | Priority |\n|---|---|\n"
             "| Planet debilitated, weakness not cancelled | High |\n"
-            "| Two or more triggers on the same planet | High |\n"
+            "| Two or more Medium triggers on the same planet | High |\n"
             "| Planet in the 8th or 12th house (or a gentle planet in the 6th) | Medium |\n"
             "| 3 or fewer Ashtakavarga points in the sign it occupies | Medium |\n"
+            "| Combust: too close to the Sun (Moon 12°, Mars 17°, Mercury 14°, Jupiter 11°, Venus 10°, Saturn 15°; "
+            "Mercury 12° and Venus 8° when retrograde) | Medium (Low for Mercury) |\n"
+            "| Two or more malefic influences (Saturn or Mars aspect; Saturn, Mars, Rahu or Ketu in the same sign) "
+            "and no Jupiter aspect | Medium |\n"
             "| Debilitated but cancelled (Neecha Bhanga) | Low |\n"
             "| Lord of the current Mahadasha or Antardasha | Medium (High if also weak at birth) |\n"
             "| Tense relationship between the two period lords (2/12 or 6/8) | High for the sub-period lord |\n"
@@ -390,5 +394,8 @@ with tabs[6]:
             "| Sade Sati first or final phase, Ardhashtama Shani | Medium |\n\n"
             "**Gemstones** are shown only for your Lagna lord, or for a planet that rules a kendra or trikona and no "
             "difficult house. Rahu and Ketu never get one here.\n\n"
-            "**Not checked yet:** combustion (a planet too close to the Sun), planetary aspects and full Shadbala. "
-            "A professional reading may flag planets this tab does not.")
+            "**Aspects** are whole-sign: every planet aspects the 7th sign from itself; Mars also the 4th and 8th, "
+            "Jupiter the 5th and 9th, Saturn the 3rd and 10th. Rahu and Ketu count only when they share a sign, because "
+            "traditions disagree on their aspects. A single malefic influence, or one eased by Jupiter, is listed as a "
+            "note and does not raise the priority.\n\n"
+            "**Not checked yet:** full Shadbala. A professional reading may flag planets this tab does not.")
