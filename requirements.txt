@@ -1,9 +1,7 @@
-streamlit>=1.30.0
-pandas>=2.0.0
-numpy>=1.24.0
-plotly>=5.18.0
-pyswisseph>=2.8.0.post1
-geopy>=2.4.0
-timezonefinder>=6.2.0
-Flask>=3.0.0
-gunicorn>=21.2.0
+streamlit>=1.37
+pandas>=2.0
+plotly>=5.18
+pyswisseph>=2.10
+geopy>=2.4
+timezonefinder>=6.2
+markdown>=3.5
