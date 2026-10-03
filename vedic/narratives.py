@@ -286,6 +286,9 @@ GLOSSARY = {
     "Aspect (Drishti)": "A planet's gaze on other signs. Every planet aspects the 7th sign from itself; Mars also "
                         "the 4th and 8th, Jupiter the 5th and 9th, Saturn the 3rd and 10th. Jupiter's aspect protects; "
                         "Saturn's and Mars's add pressure.",
+    "Shadbala / Rupa": "Shadbala is a planet's six-fold strength (position, direction, time, motion, natural "
+                       "brightness, aspects), measured in rupas. Each planet has a minimum it needs; above it, the "
+                       "planet can deliver its results.",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
                  "Lahiri is the standard in India.",
     "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "

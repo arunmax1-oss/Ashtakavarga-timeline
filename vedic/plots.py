@@ -108,3 +108,27 @@ def strength_figure(rows):
     fig.add_hline(y=50, line_dash="dash", line_color="gray", annotation_text="Baseline (50)")
     fig.update_layout(height=400, margin=dict(l=10, r=10, t=60, b=10), legend_title_text="")
     return fig
+
+
+SHADBALA_COLORS = {"sthana": "#4A90E2", "dig": "#50E3C2", "kala": "#F5C242",
+                   "cheshta": "#D0453B", "naisargika": "#C77DDB", "drik": "#8C8C8C"}
+
+
+def shadbala_figure(sb):
+    """Stacked bars of the six balas in rupas, with each planet's required minimum marked."""
+    import plotly.graph_objects as go
+    from .shadbala import COMPONENT_LABELS
+    planets = sorted(CLASSICAL_PLANETS, key=lambda p: sb[p]["rank"])
+    fig = go.Figure()
+    for key, label in COMPONENT_LABELS.items():
+        fig.add_bar(name=label, y=planets, x=[sb[p]["components"][key] / 60 for p in planets], orientation="h",
+                    marker_color=SHADBALA_COLORS[key],
+                    hovertemplate=f"{label}: %{{x:.2f}} rupas<extra>%{{y}}</extra>")
+    fig.add_scatter(name="Required minimum", y=planets, x=[sb[p]["required"] / 60 for p in planets], mode="markers",
+                    marker=dict(symbol="line-ns", size=26, line=dict(width=3, color="white")),
+                    hovertemplate="Required: %{x:.1f} rupas<extra>%{y}</extra>")
+    fig.update_layout(barmode="relative", height=480, margin=dict(l=10, r=10, t=50, b=10),
+                      title="<b>Shadbala in rupas (white tick = required minimum)</b>",
+                      xaxis_title="Rupas", yaxis=dict(autorange="reversed"),
+                      legend=dict(orientation="h", yanchor="top", y=-0.18, x=0, title_text=""))
+    return fig

@@ -117,3 +117,30 @@ def test_aspects_and_combustion():
     assert all("Rahu's" not in m for m in influences(CHART, "Venus")["malefic"])
     assert "Rahu in the same sign" in influences(CHART, "Venus")["malefic"]
     assert p["Sun"]["sign"] == "Gemini"
+
+
+def test_shadbala():
+    from vedic.shadbala import NAISARGIKA, drishti_value, shadbala
+    sb = shadbala(CHART)
+    planets = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
+    assert sorted(sb[p]["rank"] for p in planets) == list(range(1, 8))
+    for p in planets:
+        assert sb[p]["components"]["naisargika"] == NAISARGIKA[p]
+        assert 0 <= sb[p]["components"]["dig"] <= 60 and 0 <= sb[p]["detail"]["Uchcha"] <= 60
+        assert abs(sb[p]["total"] - sum(sb[p]["components"].values())) < 1e-9
+    # Saturn at 29.06 Libra, 9.06 deg past deep exaltation (20 Libra): Uchcha = (180 - 9.06) / 3
+    assert abs(sb["Saturn"]["detail"]["Uchcha"] - (180 - 9.06) / 3) < 0.1
+    # 14:30 on a Saturday (sunrise 05:53): last third of the day is Saturn's; 9th hora is Jupiter's
+    meta = sb["_meta"]
+    assert meta["day_birth"] and meta["vara"] == "Saturn" and meta["hora"] == "Jupiter"
+    assert sb["Saturn"]["detail"]["Tribhaga"] == 60 and sb["Jupiter"]["detail"]["Tribhaga"] == 60
+    # Classical aspect strengths: 3rd 1/4, 4th 3/4, 5th 1/2, 7th full, 8th 3/4, 9th 1/2, 10th 1/4
+    for angle, value in [(60, 15), (90, 45), (120, 30), (180, 60), (210, 45), (240, 30), (270, 15)]:
+        assert drishti_value("Venus", angle) == value
+    assert drishti_value("Saturn", 75) == drishti_value("Jupiter", 130) == drishti_value("Mars", 100) == 60
+
+
+def test_shadbala_polar_birth_uses_nominal_sunrise():
+    from vedic.shadbala import shadbala
+    sb = shadbala(build_chart(dt.date(1990, 6, 21), dt.time(12, 0), 69.65, 18.96, "Europe/Oslo"))  # midnight sun
+    assert sb["_meta"]["sun_approximated"] and sb["_meta"]["vara"] == "Jupiter"  # a Thursday

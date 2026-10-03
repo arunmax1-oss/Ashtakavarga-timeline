@@ -13,11 +13,12 @@ from vedic import narratives as nar
 from vedic import remedies as rem
 from vedic.aspects import aspects_on, combustion
 from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sign_table
-from vedic.chart import build_chart, geocode
+from vedic.chart import build_chart, geocode, jd_to_datetime
 from vedic.constants import AYANAMSHAS, HOUSE_INFO, SIGNS, ordinal
 from vedic.dasha import active_periods, dasha_balance, periods_in_window, sub_periods, vimshottari
-from vedic.plots import bav_heatmap, sav_figure, strength_figure, timeline_figure, to_local
+from vedic.plots import bav_heatmap, sav_figure, shadbala_figure, strength_figure, timeline_figure, to_local
 from vedic.report import build_report
+from vedic.shadbala import COMPONENT_LABELS, shadbala
 from vedic.transits import transit_segments, utc_now
 from vedic.yogas import detect_yogas, dignity_strength
 
@@ -36,7 +37,7 @@ def cached_geocode(query):
 def compute_core(date, time, lat, lon, tz_name, ayanamsha, true_node):
     chart = build_chart(date, time, lat, lon, tz_name, ayanamsha, true_node)
     av = compute_ashtakavarga(chart)
-    return chart, av, vimshottari(chart)
+    return chart, av, vimshottari(chart), shadbala(chart)
 
 
 @st.cache_data(show_spinner=False)
@@ -79,7 +80,7 @@ with st.sidebar.expander("⚙ Calculation settings"):
     true_node = st.radio("Rahu/Ketu", ["Mean node", "True node"], horizontal=True) == "True node"
     st.caption("Houses: whole sign (Rasi = Bhava). Ephemeris: Swiss Ephemeris (Moshier).")
 
-chart, av, schedule = compute_core(dob, tob, lat, lon, tz_name, ayanamsha, true_node)
+chart, av, schedule, sb = compute_core(dob, tob, lat, lon, tz_name, ayanamsha, true_node)
 P = chart["planets"]
 sav_house = sav_by_house(chart, av)
 now = utc_now()
@@ -112,7 +113,7 @@ m[4].metric("Mahadasha", md_now["lord"] if md_now else "—",
 with st.expander("📖 New to this? Plain-English glossary of the terms used on every tab"):
     st.markdown("\n".join(f"- **{k}:** {v}" for k, v in nar.GLOSSARY.items()))
 
-remedies = rem.build_remedies(chart, av, (md_now, ad_now), now)
+remedies = rem.build_remedies(chart, av, (md_now, ad_now), now, sb)
 
 tabs = st.tabs(["📜 Summary & Yogas", "🪐 Planets & Nakshatras", "⏳ Dasha", "📊 Ashtakavarga",
                 "🎯 Timing Engine", "⚡ Planet Strength", "🪔 Remedies"])
@@ -340,17 +341,69 @@ with tabs[4]:
 # Strength
 # --------------------------------------------------------------------------------------
 with tabs[5]:
-    st.markdown("> 💡 A quick strength indicator starting from 50: **dignity** (exalted +35, own sign +20, "
-                "debilitated −25), **directional strength** (+25 in the Dig Bala house), **combustion** (−15, or −5 "
-                "for Mercury), **Jupiter's aspect or company** (+10) and **combined malefic pressure** (−10 for two "
-                "or more Saturn/Mars aspects or malefics in the same sign, with no Jupiter support). It is a "
-                "simplification, not the full six-fold Shadbala.")
+    st.markdown("> 💡 **Shadbala** is the classical six-fold strength of a planet (BPHS), measured in *rupas*. "
+                "It adds up strength from **position** (Sthana), **direction** (Dig), **time of birth** (Kala), "
+                "**motion** (Cheshta), **natural brightness** (Naisargika) and **aspects** (Drik). Each planet has a "
+                "**required minimum**; above it, the planet can deliver its results, below it, its themes need effort.")
+    order = sorted((p for p in sb if p != "_meta"), key=lambda p: sb[p]["rank"])
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Strongest planet", order[0], f"{sb[order[0]]['ratio']:.2f}× required", delta_color="off")
+    m2.metric("Weakest planet", order[-1], f"{sb[order[-1]]['ratio']:.2f}× required", delta_color="off")
+    m3.metric("Planets above minimum", f"{sum(sb[p]['ratio'] >= 1 for p in order)} of 7")
+    st.plotly_chart(shadbala_figure(sb), use_container_width=True)
+
+    st.subheader("🧭 What this means for you")
+    for line in ins.shadbala_insight(chart, sb):
+        st.markdown(f"- {line}")
+
+    st.subheader("Shadbala table (rupas)")
+    st.dataframe(pd.DataFrame([{
+        "Rank": sb[p]["rank"], "Planet": p,
+        **{COMPONENT_LABELS[k]: round(v / 60, 2) for k, v in sb[p]["components"].items()},
+        "Total": round(sb[p]["rupas"], 2), "Required": sb[p]["required"] / 60, "Ratio": round(sb[p]["ratio"], 2),
+    } for p in order]), use_container_width=True, hide_index=True,
+        column_config={"Ratio": st.column_config.ProgressColumn("Ratio (≥ 1 is strong)", format="%.2f",
+                                                                min_value=0, max_value=2)})
+
+    with st.expander("Sub-components (virupas; 60 virupas = 1 rupa)"):
+        st.dataframe(pd.DataFrame([{"Planet": p, **{k: round(v, 1) for k, v in sb[p]["detail"].items()}}
+                                   for p in order]), use_container_width=True, hide_index=True)
+        st.markdown("**Saptavarga dignities** (used for Saptavargaja Bala)")
+        st.dataframe(pd.DataFrame([{"Planet": p, **sb[p]["vargas"]} for p in order]),
+                     use_container_width=True, hide_index=True)
+        meta = sb["_meta"]
+        st.caption(f"{'Day' if meta['day_birth'] else 'Night'} birth. Time lords: year {meta['abda']}, month "
+                   f"{meta['masa']}, weekday {meta['vara']}, hora {meta['hora']}. Sunrise "
+                   f"{to_local(jd_to_datetime(meta['sunrise']), tz_name):%H:%M}, sunset "
+                   f"{to_local(jd_to_datetime(meta['sunset']), tz_name):%H:%M} (local)"
+                   + (". The Sun does not rise or set on this date at this latitude, so 06:00 and 18:00 local solar "
+                      "time are used." if meta["sun_approximated"] else "."))
+    with st.expander("How Shadbala is calculated here"):
+        st.markdown(
+            "- **Sthana:** Uchcha (distance from debilitation), Saptavargaja (dignity in D1, D2, D3, D7, D9, D12, "
+            "D30 using compound friendship), Ojha-Yugma (odd/even sign and navamsha), Kendradi (house type), "
+            "Drekkana (which third of the sign).\n"
+            "- **Dig:** distance from the planet's strongest house cusp (equal houses from the Ascendant).\n"
+            "- **Kala:** Nathonnata (day/night), Paksha (lunar phase), Tribhaga (third of day/night), year, month, "
+            "weekday and hora lords, Ayana (declination), and Yuddha (planetary war, if any).\n"
+            "- **Cheshta:** chesta-kendra from mean and true positions; the Sun uses Ayana, the Moon uses Paksha.\n"
+            "- **Naisargika:** fixed natural strengths.\n"
+            "- **Drik:** degree-based aspects; benefics add, malefics subtract, divided by 4.\n\n"
+            "Classical sources differ on a few conventions (year/month lord reckoning, sunrise definition, Mercury's "
+            "nature), so totals can differ slightly from other software. The conventions used are listed at the top "
+            "of `vedic/shadbala.py`.")
+
+    st.divider()
+    st.subheader("Quick indicator: dignity, direction, combustion and aspects")
+    st.caption("A simpler score that also covers Rahu and Ketu (Shadbala does not). Starts from 50: exalted +35, "
+               "own sign +20, debilitated −25, Dig Bala house +25, combust −15 (Mercury −5), Jupiter's aspect or "
+               "company +10, combined malefic pressure −10.")
     strength = dignity_strength(chart)
     st.plotly_chart(strength_figure(strength), use_container_width=True)
-    st.subheader("🧭 What this means for you")
-    for line in ins.strength_insight(chart, strength):
-        st.markdown(f"- {line}")
-    st.dataframe(pd.DataFrame(strength), use_container_width=True, hide_index=True)
+    with st.expander("What the quick indicator says"):
+        for line in ins.strength_insight(chart, strength):
+            st.markdown(f"- {line}")
+        st.dataframe(pd.DataFrame(strength), use_container_width=True, hide_index=True)
 
 # --------------------------------------------------------------------------------------
 # Remedies
@@ -370,7 +423,7 @@ with tabs[6]:
         ("🌱 Lifelong", "lifelong",
          "Planets that are weak in the birth chart itself. These do not expire; small, steady habits work best.",
          "No planet is flagged in your birth chart: none is debilitated, combust, under combined malefic pressure, "
-         "in the 8th or 12th house, or short of Ashtakavarga points where it sits."),
+         "below its required Shadbala, in the 8th or 12th house, or short of Ashtakavarga points where it sits."),
     ]:
         st.subheader(heading)
         st.caption(intro)
@@ -398,11 +451,12 @@ with tabs[6]:
             "| Lord of the current Mahadasha or Antardasha | Medium (High if also weak at birth) |\n"
             "| Tense relationship between the two period lords (2/12 or 6/8) | High for the sub-period lord |\n"
             "| Sade Sati peak or Ashtama Shani | High |\n"
-            "| Sade Sati first or final phase, Ardhashtama Shani | Medium |\n\n"
+            "| Sade Sati first or final phase, Ardhashtama Shani | Medium |\n"
+            "| Shadbala below the planet's required minimum | Medium |\n\n"
             "**Gemstones** are shown only for your Lagna lord, or for a planet that rules a kendra or trikona and no "
             "difficult house. Rahu and Ketu never get one here.\n\n"
             "**Aspects** are whole-sign: every planet aspects the 7th sign from itself; Mars also the 4th and 8th, "
             "Jupiter the 5th and 9th, Saturn the 3rd and 10th. Rahu and Ketu count only when they share a sign, because "
             "traditions disagree on their aspects. A single malefic influence, or one eased by Jupiter, is listed as a "
             "note and does not raise the priority.\n\n"
-            "**Not checked yet:** full Shadbala. A professional reading may flag planets this tab does not.")
+            "A professional reading weighs these factors with judgement and may emphasise different planets.")

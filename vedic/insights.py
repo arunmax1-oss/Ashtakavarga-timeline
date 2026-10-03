@@ -323,3 +323,50 @@ def strength_insight(chart, rows):
                           if neecha_bhanga(chart, n) else ""))
         out.append(verdict)
     return out
+
+
+# --------------------------------------------------------------------------------------
+# Shadbala
+# --------------------------------------------------------------------------------------
+_BALA_MEANING = {
+    "sthana": "its placement (sign dignity across the divisional charts and house type)",
+    "dig": "its direction (being near the house where it is naturally strongest)",
+    "kala": "the time of birth (day/night, lunar phase, and the year, month, weekday and hour lords)",
+    "cheshta": "its motion (slow or retrograde planets gain here)",
+    "naisargika": "its natural brightness (fixed for every chart)",
+    "drik": "the aspects it receives (benefic aspects add, malefic aspects subtract)",
+}
+
+
+def shadbala_insight(chart, sb):
+    from .shadbala import COMPONENT_LABELS
+    out = []
+    ranked = sorted(CLASSICAL_PLANETS, key=lambda p: sb[p]["rank"])
+    strong = [p for p in ranked if sb[p]["ratio"] >= 1]
+    weak = [p for p in ranked if sb[p]["ratio"] < 1]
+    out.append(f"**{len(strong)} of 7 planets** meet their required Shadbala"
+               + (f"; **{', '.join(weak)}** fall{'s' if len(weak) == 1 else ''} short." if weak else ".")
+               + f" **{ranked[0]}** is your strongest planet and **{ranked[-1]}** your weakest, measured against "
+                 "what each planet needs.")
+    for p in ranked:
+        r = sb[p]
+        # Compare the four main variable sources against their typical scale; Naisargika is fixed and Drik is
+        # usually near zero, so it is only mentioned when it makes a real difference.
+        scale = {"sthana": 240, "dig": 60, "kala": 240, "cheshta": 60}
+        comps = {k: r["components"][k] for k in scale}
+        best = max(comps, key=lambda k: comps[k] / scale[k])
+        worst = min(comps, key=lambda k: comps[k] / scale[k])
+        drik = r["components"]["drik"]
+        drik_note = (f" Aspects {'add' if drik > 0 else 'subtract'} {abs(drik) / 60:.2f} rupas "
+                     f"({'benefic' if drik > 0 else 'malefic'} aspects dominate)." if abs(drik) >= 10 else "")
+        houses = ruled_houses(chart, p)
+        rules = f" It rules your {_houses_text(houses)} house{'s' if len(houses) > 1 else ''}." if houses else ""
+        verdict = ("comfortably strong" if r["ratio"] >= 1.25 else "strong enough" if r["ratio"] >= 1 else
+                   "below its required strength")
+        out.append(f"**{p}: {r['rupas']:.2f} of {r['required'] / 60:.1f} rupas needed ({r['ratio']:.2f}×), {verdict}.** "
+                   f"Its biggest asset is {COMPONENT_LABELS[best].split(' (')[0]} Bala: {_BALA_MEANING[best]}. "
+                   f"Its weakest source is {COMPONENT_LABELS[worst].split(' (')[0]} Bala: {_BALA_MEANING[worst]}."
+                   + drik_note + rules
+                   + (" Its themes deliver readily in its periods and transits." if r["ratio"] >= 1 else
+                      f" Its themes need steady effort; helpful: {PLANET_SUPPORT[p]}."))
+    return out

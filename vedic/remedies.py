@@ -3,7 +3,7 @@
 Every remedy is tied to a specific, computed chart fact, so the user can always see *why* it is shown.
 No Streamlit here: functions take computed data and return plain lists/dicts/Markdown.
 
-Not covered (the engine does not compute it yet): full Shadbala.
+Shadbala is optional: pass the result of vedic.shadbala.shadbala() to add its check.
 """
 import datetime as dt
 
@@ -25,7 +25,7 @@ _SATURN_PHASES = {
 # --------------------------------------------------------------------------------------
 # Triggers
 # --------------------------------------------------------------------------------------
-def natal_flags(chart, av, planet):
+def natal_flags(chart, av, planet, sb=None):
     """Reasons this planet needs support in the birth chart. Returns (reasons, priority or None).
 
     Each trigger carries a weight: High (uncancelled debilitation), Medium, or Low. Two Medium triggers make
@@ -50,6 +50,11 @@ def natal_flags(chart, av, planet):
         bav = av["bav"][planet][p["sign_idx"]]
         if bav <= 3:
             triggers.append((f"Only {bav}/8 Ashtakavarga points in the sign it occupies (4 is average)", "Medium"))
+
+    if sb and planet in sb and sb[planet]["ratio"] < 1:
+        r = sb[planet]
+        triggers.append((f"Shadbala {r['rupas']:.2f} rupas, below the {r['required'] / 60:.1f} it needs "
+                         f"({r['ratio']:.2f}×)", "Medium"))
 
     comb = combustion(chart, planet)
     if comb:
@@ -124,12 +129,12 @@ def _entry(chart, planet, reasons, priority, until=None):
     }
 
 
-def build_remedies(chart, av, schedule_now, when):
+def build_remedies(chart, av, schedule_now, when, sb=None):
     """schedule_now = (mahadasha, antardasha) dicts or (None, None). Returns {'now': [...], 'lifelong': [...]}."""
     md, ad = schedule_now
     lifelong, natal = [], {}
     for planet in ALL_PLANETS:
-        reasons, priority = natal_flags(chart, av, planet)
+        reasons, priority = natal_flags(chart, av, planet, sb)
         natal[planet] = (reasons, priority)
         if reasons:
             lifelong.append(_entry(chart, planet, reasons, priority))
