@@ -37,6 +37,7 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/yogas.py` | Yoga detection and the dignity strength score |
 | `vedic/narratives.py` | All interpretation text (edit wording here) |
 | `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each tab |
+| `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
 | `vedic/plots.py` | Plotly charts |
 | `vedic/report.py` | Downloadable HTML report |
 | `tests/test_engine.py` | Sanity checks (SAV = 337, BAV totals, dasha order, transit continuity) |

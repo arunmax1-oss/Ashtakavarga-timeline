@@ -10,6 +10,7 @@ import streamlit as st
 
 from vedic import insights as ins
 from vedic import narratives as nar
+from vedic import remedies as rem
 from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sign_table
 from vedic.chart import build_chart, geocode
 from vedic.constants import AYANAMSHAS, HOUSE_INFO, SIGNS, ordinal
@@ -96,15 +97,24 @@ st.caption(f"{who}Born {fmt_date(dob)} at {tob.strftime('%H:%M')} · {address} �
 
 m = st.columns(5)
 m[0].metric("Lagna", P["Ascendant"]["sign"], f"{P['Ascendant']['degree']:.1f}° {P['Ascendant']['nakshatra']}",
-            delta_color="off")
-m[1].metric("Moon Sign", P["Moon"]["sign"], P["Moon"]["nakshatra"], delta_color="off")
-m[2].metric("Atmakaraka", nar.karaka(chart, "AK")["planet"])
-m[3].metric("Amatyakaraka", nar.karaka(chart, "AmK")["planet"])
+            delta_color="off", help="Your rising sign: the starting point of the chart. Describes body and temperament.")
+m[1].metric("Moon Sign", P["Moon"]["sign"], P["Moon"]["nakshatra"], delta_color="off",
+            help="Your Rashi: mind and emotions. The second line is your birth star (nakshatra).")
+m[2].metric("Atmakaraka", nar.karaka(chart, "AK")["planet"],
+            help="Your 'soul planet': the planet with the highest degree. Its themes are your main life lesson.")
+m[3].metric("Amatyakaraka", nar.karaka(chart, "AmK")["planet"],
+            help="Your 'career planet': the second-highest degree. It shapes the kind of work that suits you.")
 m[4].metric("Mahadasha", md_now["lord"] if md_now else "—",
-            f"{ad_now['lord']} AD until {fmt_date(ad_now['end'])}" if ad_now else None, delta_color="off")
+            f"{ad_now['lord']} AD until {fmt_date(ad_now['end'])}" if ad_now else None, delta_color="off",
+            help="The planet running your current multi-year life chapter. AD = Antardasha, the current sub-chapter.")
+
+with st.expander("📖 New to this? Plain-English glossary of the terms used on every tab"):
+    st.markdown("\n".join(f"- **{k}:** {v}" for k, v in nar.GLOSSARY.items()))
+
+remedies = rem.build_remedies(chart, av, (md_now, ad_now), now)
 
 tabs = st.tabs(["📜 Summary & Yogas", "🪐 Planets & Nakshatras", "⏳ Dasha", "📊 Ashtakavarga",
-                "🎯 Timing Engine", "⚡ Planet Strength"])
+                "🎯 Timing Engine", "⚡ Planet Strength", "🪔 Remedies"])
 
 # --------------------------------------------------------------------------------------
 # Summary
@@ -241,7 +251,8 @@ with tabs[3]:
                 "Optimal flow" if s[10] > s[11] else "Leaking value", delta_color="normal" if s[10] > s[11] else "inverse")
     d[2].metric("Vitality vs Stress (1 vs 6)", f"{s[0]} vs {s[5]}",
                 "Resilient" if s[0] >= s[5] else "Vulnerable", delta_color="normal" if s[0] >= s[5] else "inverse")
-    d[3].metric("8th House", f"{s[7]} pts", "Controlled risk" if s[7] < 28 else "Elevated risk", delta_color="off")
+    d[3].metric("8th House (sudden change)", f"{s[7]} pts", nar.eighth_house_reading(s[7])[0], delta_color="off",
+                help=nar.eighth_house_reading(s[7])[1])
 
     st.plotly_chart(bav_heatmap(av, chart["asc_sign_idx"]), use_container_width=True)
     st.caption("How to read: each row is one planet's own scorecard (Bhinna Ashtakavarga). A bright cell (5–8) means "
@@ -314,7 +325,8 @@ with tabs[4]:
                  ("Current Dasha", f"{md_now['lord']} / {ad_now['lord']}" if md_now else "—"),
                  ("10th House SAV", sav_house[9])],
         sections=[("💼 Career & Wealth", nar.career_narrative(chart, sav_house)),
-                  ("🩺 Health & Vitality", nar.health_narrative(chart, sav_house))],
+                  ("🩺 Health & Vitality", nar.health_narrative(chart, sav_house)),
+                  ("🪔 Remedies", rem.remedies_markdown(remedies) + "\n\n*" + nar.REMEDY_DISCLAIMER + "*")],
         figures=[fig, sav_figure(sav_house)],
     )
     st.download_button("📥 Download HTML report", report, file_name="vedic_astrology_report.html", mime="text/html")
@@ -332,3 +344,51 @@ with tabs[5]:
     for line in ins.strength_insight(chart, strength):
         st.markdown(f"- {line}")
     st.dataframe(pd.DataFrame(strength), use_container_width=True, hide_index=True)
+
+# --------------------------------------------------------------------------------------
+# Remedies
+# --------------------------------------------------------------------------------------
+with tabs[6]:
+    st.markdown("> 💡 **Remedies (upaya)** are traditional ways to work with a planet that is weak in your birth "
+                "chart or is running your life right now. Every row below shows the exact chart fact that triggered "
+                "it. Each planet has three tiers: a **practical** habit, a **devotional** practice, and (only where "
+                "it is safe for your Lagna) a **gemstone** to discuss with an astrologer.")
+    st.info(nar.REMEDY_DISCLAIMER)
+
+    for heading, key, intro, empty in [
+        ("⏱ Do now", "now",
+         "Planets that are active at present: the lords of your current Dasha periods and any Saturn pressure "
+         "on your Moon. These change over time, so each has an end date.",
+         "Nothing time-bound is flagged right now."),
+        ("🌱 Lifelong", "lifelong",
+         "Planets that are weak in the birth chart itself. These do not expire; small, steady habits work best.",
+         "No planet is flagged in your birth chart: none is debilitated, in the 8th or 12th house, or short of "
+         "Ashtakavarga points where it sits."),
+    ]:
+        st.subheader(heading)
+        st.caption(intro)
+        entries = remedies[key]
+        if not entries:
+            st.success(empty)
+            continue
+        st.dataframe(pd.DataFrame(rem.table_rows(entries)), use_container_width=True, hide_index=True)
+        for e in entries:
+            with st.expander(f"{e['planet']} · {e['priority']} priority · {e['day']}"):
+                st.markdown(rem.entry_markdown(e))
+
+    with st.expander("How these remedies are chosen (and what is not checked)"):
+        st.markdown(
+            "| Trigger | Priority |\n|---|---|\n"
+            "| Planet debilitated, weakness not cancelled | High |\n"
+            "| Two or more triggers on the same planet | High |\n"
+            "| Planet in the 8th or 12th house (or a gentle planet in the 6th) | Medium |\n"
+            "| 3 or fewer Ashtakavarga points in the sign it occupies | Medium |\n"
+            "| Debilitated but cancelled (Neecha Bhanga) | Low |\n"
+            "| Lord of the current Mahadasha or Antardasha | Medium (High if also weak at birth) |\n"
+            "| Tense relationship between the two period lords (2/12 or 6/8) | High for the sub-period lord |\n"
+            "| Sade Sati peak or Ashtama Shani | High |\n"
+            "| Sade Sati first or final phase, Ardhashtama Shani | Medium |\n\n"
+            "**Gemstones** are shown only for your Lagna lord, or for a planet that rules a kendra or trikona and no "
+            "difficult house. Rahu and Ketu never get one here.\n\n"
+            "**Not checked yet:** combustion (a planet too close to the Sun), planetary aspects and full Shadbala. "
+            "A professional reading may flag planets this tab does not.")

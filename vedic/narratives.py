@@ -132,9 +132,8 @@ def health_narrative(chart, sav_house):
     vitality = ("Lagna is at least as strong as the 6th: constitution handles workload stress and recovers quickly."
                 if s1 >= s6 else
                 "The 6th exceeds the Lagna: burnout, inflammation or lifestyle fatigue can lower resilience during busy phases.")
-    eighth = ("At or above 28: good endurance, but prioritise stress recovery during difficult transits."
-              if s8 >= 28 else
-              "Below 28: chronic fatigue or digestive sluggishness can surface if stress goes unmanaged.")
+    eighth_label, eighth_text = eighth_house_reading(s8)
+    eighth = f"{eighth_label}. {eighth_text}"
     return f"""
 **Sensitivity focus:** {title}
 
@@ -223,3 +222,100 @@ GOCHARA_GOOD_FROM_MOON = {
     "Saturn": [3, 6, 11], "Jupiter": [2, 5, 7, 9, 11], "Mars": [3, 6, 11],
     "Sun": [3, 6, 10, 11], "Venus": [1, 2, 3, 4, 5, 8, 9, 11, 12], "Mercury": [2, 4, 6, 8, 10, 11],
 }
+
+
+def eighth_house_reading(points):
+    """One reading of 8th-house SAV, shared by the Summary and Ashtakavarga tabs so they never disagree.
+
+    The app treats the difficult houses (6th, 8th, 12th) the same way everywhere: fewer points = quieter.
+    """
+    if points < 28:
+        return ("Contained", "Below 28: sudden changes and long-running strain tend to stay manageable. "
+                             "Keep ordinary care; no special caution is indicated.")
+    return ("More active", "At or above 28: this house is lively, so sudden changes and stress are felt more strongly. "
+                           "The same energy gives depth for research and staying power. "
+                           "Prioritise recovery and buffers (rest, savings, insurance) during difficult transits.")
+
+
+# --------------------------------------------------------------------------------------
+# Glossary: plain-English meanings of the terms used across the tabs
+# --------------------------------------------------------------------------------------
+GLOSSARY = {
+    "Lagna (Ascendant, Rising sign)": "The zodiac sign rising on the eastern horizon at your birth. It is the starting "
+                                      "point of the chart and describes your body, temperament and approach to life.",
+    "Rashi (Moon sign)": "The sign the Moon was in at birth. It describes your mind, moods and emotional needs. "
+                         "Most Indian horoscopes are read from it.",
+    "House (Bhava)": "One of 12 areas of life (self, money, home, career and so on). The 1st house is the Lagna sign, "
+                     "the 2nd is the next sign, and so on.",
+    "Nakshatra": "One of 27 star groups, each 13°20' wide, that the zodiac is divided into. It adds finer detail to a "
+                 "planet's sign. Your Moon's nakshatra is your birth star.",
+    "Pada": "A quarter of a nakshatra (3°20'). Each nakshatra has 4 padas.",
+    "Dignity": "How comfortable a planet is in its sign. Exalted = strongest, Own Sign = comfortable, "
+               "Neutral = ordinary, Debilitated = weakest.",
+    "Neecha Bhanga": "'Cancelled debilitation': a weak planet gets support from another planet, so early difficulty "
+                     "in its area tends to turn into strength later.",
+    "Retrograde (℞)": "The planet appears to move backwards as seen from Earth. Its themes come through review, "
+                      "delay and second attempts.",
+    "Vargottama": "A planet in the same sign in the main chart and in the D9 chart. Treated as extra strong and reliable.",
+    "D9 (Navamsha)": "A secondary chart made by dividing each sign into 9 parts. Shows inner strength and marriage.",
+    "D10 (Dashamsha)": "A secondary chart made by dividing each sign into 10 parts. Shows career.",
+    "Karaka (Atmakaraka, Amatyakaraka ...)": "'Significator'. The 7 planets ranked by degree each take a role: the "
+                                             "Atmakaraka (highest degree) is the soul planet, the Amatyakaraka (second) "
+                                             "is the career planet, and so on.",
+    "Yoga": "A named combination of planets that gives a specific result, for example Gajakesari Yoga.",
+    "Kendra / Trikona / Dusthana": "House groups. Kendras (1, 4, 7, 10) are pillars of the chart. Trikonas (1, 5, 9) "
+                                   "are houses of fortune. Dusthanas (6, 8, 12) are houses of difficulty.",
+    "Functional benefic": "A planet that is helpful for your particular Lagna because of the houses it rules.",
+    "Dasha (Vimshottari)": "A 120-year sequence of planetary periods. It shows which planet is 'running' your life "
+                           "at any time.",
+    "Mahadasha / Antardasha / Pratyantardasha": "Main period (years) / sub-period (months to a few years) / "
+                                                "sub-sub-period (weeks to months).",
+    "Ashtakavarga": "A points system. Each planet gives or withholds a point (bindu) to each sign. More points = "
+                    "that area of life works more easily.",
+    "Bindu": "One benefic point in Ashtakavarga.",
+    "BAV (Bhinna Ashtakavarga)": "One planet's own scorecard: 0 to 8 points per sign. 4 is average.",
+    "SAV (Sarvashtakavarga)": "All planets' points added up per sign. 28 is average, 30 or more is strong.",
+    "Kakshya": "One eighth of a sign (3°45'). Each has a ruling planet. Used to time transits precisely.",
+    "Transit (Gochara)": "Where the planets are in the sky now (or on any date), compared with your birth chart.",
+    "Sade Sati": "Saturn's roughly 7½ year passage through the sign before your Moon, your Moon sign, and the sign "
+                 "after. A period of pressure, responsibility and maturing.",
+    "Ashtama Shani / Ardhashtama Shani": "Saturn in the 8th / 4th sign from your Moon. Shorter periods of pressure "
+                                         "(about 2½ years each).",
+    "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
+                 "Lahiri is the standard in India.",
+    "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "
+                   "planets: Rahu = worldly hunger, Ketu = detachment.",
+}
+
+# --------------------------------------------------------------------------------------
+# Traditional remedies (upaya). Tier 1 (practical) reuses PLANET_SUPPORT above.
+# --------------------------------------------------------------------------------------
+REMEDIES = {
+    "Sun": {"day": "Sunday", "mantra": "Om Suryaya Namah", "deity": "Surya",
+            "practice": "offer water to the rising Sun", "charity": "wheat or jaggery", "gem": "Ruby"},
+    "Moon": {"day": "Monday", "mantra": "Om Chandraya Namah", "deity": "Shiva",
+             "practice": "offer water or milk at a Shiva temple", "charity": "rice, milk or white cloth", "gem": "Pearl"},
+    "Mars": {"day": "Tuesday", "mantra": "Om Mangalaya Namah", "deity": "Hanuman",
+             "practice": "recite the Hanuman Chalisa", "charity": "red lentils (masoor dal)", "gem": "Red Coral"},
+    "Mercury": {"day": "Wednesday", "mantra": "Om Budhaya Namah", "deity": "Vishnu",
+                "practice": "recite the Vishnu Sahasranama or feed green fodder to cows",
+                "charity": "green moong dal or books for students", "gem": "Emerald"},
+    "Jupiter": {"day": "Thursday", "mantra": "Om Gurave Namah", "deity": "Brihaspati / your teachers",
+                "practice": "honour a teacher or elder and offer yellow flowers",
+                "charity": "chana dal, turmeric or yellow cloth", "gem": "Yellow Sapphire"},
+    "Venus": {"day": "Friday", "mantra": "Om Shukraya Namah", "deity": "Lakshmi",
+              "practice": "offer white flowers to Lakshmi", "charity": "white sweets, rice or curd", "gem": "Diamond or White Sapphire"},
+    "Saturn": {"day": "Saturday", "mantra": "Om Shanaishcharaya Namah", "deity": "Shani / Hanuman",
+               "practice": "light a sesame-oil lamp at dusk", "charity": "black sesame, mustard oil, or help for labourers and the elderly",
+               "gem": "Blue Sapphire"},
+    "Rahu": {"day": "Saturday", "mantra": "Om Rahave Namah", "deity": "Durga",
+             "practice": "recite a Durga prayer", "charity": "black urad dal or blankets", "gem": None},
+    "Ketu": {"day": "Tuesday", "mantra": "Om Ketave Namah", "deity": "Ganesha",
+             "practice": "offer durva grass to Ganesha", "charity": "blankets, or food for stray dogs", "gem": None},
+}
+
+REMEDY_DISCLAIMER = ("Remedies are traditional practices offered for reflection. They are optional, they are not a "
+                     "substitute for medical, legal or financial advice, and nothing here promises an outcome. "
+                     "Start with the practical step: it costs nothing and carries no risk.")
+GEM_CAUTION = ("Gemstones strengthen a planet for better or worse, are costly, and are easy to get wrong. "
+               "Treat this as a question to take to an astrologer you trust, not as an instruction.")

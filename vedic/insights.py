@@ -173,16 +173,29 @@ def upcoming_antardashas(chart, av, schedule, md, ad, count=4):
 # Ashtakavarga
 # --------------------------------------------------------------------------------------
 def ashtakavarga_insight(chart, av, sav_house):
-    ranked = sorted(range(12), key=lambda h: sav_house[h], reverse=True)
+    """Rank the supportive houses by SAV; read the difficult houses (6, 8, 12) the other way round.
+
+    Same rule as narratives.eighth_house_reading: in a dusthana, fewer points = quieter.
+    """
     above = sum(1 for s in sav_house if s >= 28)
+    good = sorted((h for h in range(12) if h + 1 not in DUSTHANAS), key=lambda h: sav_house[h], reverse=True)
     lines = [
-        f"**{above} of 12 houses** are at or above the 28 average. Strong houses are where life tends to cooperate; "
-        "weak houses are where you need deliberate effort, and where transits of difficult planets are felt most.",
+        f"**{above} of 12 houses** are at or above the 28 average. In most houses more points mean that area of life "
+        "cooperates. The difficult houses (6th, 8th, 12th) read the other way: fewer points keep their troubles quieter.",
         "**Where life flows most easily:** " + "; ".join(
-            f"{ordinal(h + 1)} house, {_domain(h + 1)} ({sav_house[h]})" for h in ranked[:3]) + ".",
+            f"{ordinal(h + 1)} house, {_domain(h + 1)} ({sav_house[h]})" for h in good[:3]) + ".",
         "**Where to be deliberate:** " + "; ".join(
-            f"{ordinal(h + 1)} house, {_domain(h + 1)} ({sav_house[h]})" for h in ranked[-3:][::-1]) + ".",
+            f"{ordinal(h + 1)} house, {_domain(h + 1)} ({sav_house[h]})" for h in good[-3:][::-1]) + ".",
     ]
+    quiet = [h for h in (6, 8, 12) if sav_house[h - 1] < 28]
+    lively = [h for h in (6, 8, 12) if sav_house[h - 1] >= 28]
+    lines.append("**Difficult houses:** "
+                 + (f"{_houses_text(quiet)} {'is' if len(quiet) == 1 else 'are'} below 28, so obstacles there stay contained. "
+                    if quiet else "")
+                 + (f"{_houses_text(lively)} {'is' if len(lively) == 1 else 'are'} at or above 28, so "
+                    f"{'its' if len(lively) == 1 else 'their'} themes are more active; keep buffers in "
+                    f"{'that area' if len(lively) == 1 else 'those areas'}."
+                    if lively else ""))
     asc = chart["asc_sign_idx"]
     best = []
     for planet in ["Saturn", "Jupiter", "Mars"]:
