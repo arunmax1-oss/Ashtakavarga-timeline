@@ -104,7 +104,7 @@ def strength_figure(rows):
     df = pd.DataFrame(rows)
     fig = px.bar(df, x="Planet", y="Strength Score", text="Strength Score", color="Status",
                  color_discrete_map={"Dominant & Strong": "#2E9E5B", "Balanced": "#2D8BD0", "Needs Support": "#D8483E"},
-                 category_orders={"Planet": list(df["Planet"])}, title="<b>Dignity & Directional Strength</b>")
+                 category_orders={"Planet": list(df["Planet"])}, title="<b>Planet Strength (dignity, direction, combustion, aspects)</b>")
     fig.add_hline(y=50, line_dash="dash", line_color="gray", annotation_text="Baseline (50)")
     fig.update_layout(height=400, margin=dict(l=10, r=10, t=60, b=10), legend_title_text="")
     return fig

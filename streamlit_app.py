@@ -11,6 +11,7 @@ import streamlit as st
 from vedic import insights as ins
 from vedic import narratives as nar
 from vedic import remedies as rem
+from vedic.aspects import aspects_on, combustion
 from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sign_table
 from vedic.chart import build_chart, geocode
 from vedic.constants import AYANAMSHAS, HOUSE_INFO, SIGNS, ordinal
@@ -167,8 +168,12 @@ with tabs[1]:
         "Planet": n + (" ℞" if p["retrograde"] else ""), "Sign": p["sign"], "Degree": f"{p['degree']:.2f}°",
         "House": p["house"], "Nakshatra": p["nakshatra"], "Pada": p["pada"], "Nak. Lord": p["nakshatra_lord"],
         "Dignity": p["dignity"], "D9": p["d9_sign"], "D10": p["d10_sign"],
+        "Combust": (f"{combustion(chart, n)['distance']:.1f}°" if n != "Ascendant" and combustion(chart, n) else ""),
+        "Aspected by": ", ".join(f"{a} ({ordinal(h)})" for a, h in aspects_on(chart, n)) if n != "Ascendant" else "",
     } for n, p in P.items()]
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.caption("Combust = degrees from the Sun when inside the classical limit. Aspected by = whole-sign aspects "
+               "received (Rahu/Ketu aspects are informational and not scored).")
 
     st.subheader("Jaimini Chara Karakas")
     st.dataframe(pd.DataFrame([{"Role": k["role"], "Planet": k["planet"], "Sign": k["sign"],
@@ -335,9 +340,11 @@ with tabs[4]:
 # Strength
 # --------------------------------------------------------------------------------------
 with tabs[5]:
-    st.markdown("> 💡 A quick strength indicator from **dignity** (exalted +35, own sign +20, debilitated −25) and "
-                "**directional strength** (+25 in the Dig Bala house), starting from 50. It is a simplification, "
-                "not the full six-fold Shadbala.")
+    st.markdown("> 💡 A quick strength indicator starting from 50: **dignity** (exalted +35, own sign +20, "
+                "debilitated −25), **directional strength** (+25 in the Dig Bala house), **combustion** (−15, or −5 "
+                "for Mercury), **Jupiter's aspect or company** (+10) and **combined malefic pressure** (−10 for two "
+                "or more Saturn/Mars aspects or malefics in the same sign, with no Jupiter support). It is a "
+                "simplification, not the full six-fold Shadbala.")
     strength = dignity_strength(chart)
     st.plotly_chart(strength_figure(strength), use_container_width=True)
     st.subheader("🧭 What this means for you")

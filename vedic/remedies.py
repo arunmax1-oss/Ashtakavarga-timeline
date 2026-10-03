@@ -61,7 +61,7 @@ def natal_flags(chart, av, planet):
 
     if planet not in ("Rahu", "Ketu"):
         inf = influences(chart, planet)
-        pressure, shield = ", ".join(inf["malefic"]), ", ".join(inf["jupiter"])
+        pressure, shield = " and ".join(inf["malefic"]), " and ".join(inf["jupiter"])
         if len(inf["malefic"]) >= 2 and not inf["jupiter"]:
             triggers.append((f"Under combined pressure from {pressure}"
                              + ("" if planet == "Jupiter" else ", with no protective aspect from Jupiter"), "Medium"))

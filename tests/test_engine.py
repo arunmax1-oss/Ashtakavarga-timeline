@@ -114,5 +114,6 @@ def test_aspects_and_combustion():
     assert combustion(CHART, "Mars") and combustion(CHART, "Mercury")
     assert combustion(CHART, "Jupiter") is None and combustion(CHART, "Rahu") is None
     # Rahu/Ketu aspects never count as malefic pressure, only their conjunctions
-    assert all("Rahu (" not in m or "same sign" in m for m in influences(CHART, "Venus")["malefic"])
+    assert all("Rahu's" not in m for m in influences(CHART, "Venus")["malefic"])
+    assert "Rahu in the same sign" in influences(CHART, "Venus")["malefic"]
     assert p["Sun"]["sign"] == "Gemini"

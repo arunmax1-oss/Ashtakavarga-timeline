@@ -4,6 +4,7 @@ Every function takes already-computed data and returns Markdown. No Streamlit he
 """
 from collections import Counter
 
+from .aspects import aspected_houses, aspects_on, combustion, influences
 from .chart import house_from, julian_day, planet_longitude, set_ayanamsha
 from .constants import ALL_PLANETS, CLASSICAL_PLANETS, HOUSE_INFO, SIGN_LORDS, SIGNS, ordinal
 from .narratives import (
@@ -21,7 +22,8 @@ def _domain(house):
 
 
 def _houses_text(houses):
-    return " and ".join(ordinal(h) for h in houses)
+    names = [ordinal(h) for h in sorted(houses)]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def ruled_houses(chart, planet):
@@ -80,6 +82,24 @@ def planets_highlights(chart):
         out.append("**Vargottama** (same sign in D1 and D9): " + ", ".join(varg)
                    + ". These planets are consistent inside and out, and much stronger than they look.")
 
+    combust = [n for n in CLASSICAL_PLANETS if combustion(chart, n)]
+    if combust:
+        out.append("**Combust** (too close to the Sun): " + ", ".join(
+            f"{n} ({combustion(chart, n)['distance']:.1f}°)" for n in combust)
+            + ". Their themes are overshadowed by the Sun's: ego, authority or the father figure"
+            + (". Mercury's combustion is common and mild." if "Mercury" in combust else "."))
+
+    pressured = [n for n in CLASSICAL_PLANETS
+                 if len(influences(chart, n)["malefic"]) >= 2 and not influences(chart, n)["jupiter"]]
+    if pressured:
+        out.append("**Under combined malefic pressure:** " + "; ".join(
+            f"{n}, from {' and '.join(influences(chart, n)['malefic'])}" for n in pressured)
+            + ". These areas carry more strain and benefit most from steady effort.")
+    protected = [n for n in CLASSICAL_PLANETS if n != "Jupiter" and influences(chart, n)["jupiter"]]
+    if protected:
+        out.append("**Protected by Jupiter's aspect:** " + ", ".join(protected)
+                   + ". Jupiter's gaze softens difficulties and adds wisdom to these planets' themes.")
+
     retro = [n for n in CLASSICAL_PLANETS if p[n]["retrograde"]]
     if retro:
         out.append("**Retrograde:** " + ", ".join(retro) + ". Their themes turn inward: revisiting, rethinking "
@@ -112,6 +132,24 @@ def planet_story(chart, av, name):
         parts.append(f"In the D9 (inner strength) it moves to {p['d9_sign']}; in the D10 (career) to {p['d10_sign']}.")
     if p["retrograde"]:
         parts.append("Being retrograde, its results come through review and persistence.")
+    comb = combustion(chart, name)
+    if comb:
+        parts.append(f"It is **combust**, {comb['distance']:.1f}° from the Sun (limit {comb['orb']}°), so its themes are "
+                     "overshadowed by the Sun's" + (" (mild for Mercury)." if name == "Mercury" else "."))
+    asp = aspects_on(chart, name)
+    if asp:
+        parts.append("It receives aspects from " + ", ".join(f"{n} ({ordinal(h)})" for n, h in asp)
+                     + (" (Rahu/Ketu aspects vary by tradition and are shown for information only, not scored)"
+                        if any(n in ("Rahu", "Ketu") for n, _ in asp) else "") + ".")
+    if name not in ("Rahu", "Ketu"):
+        inf = influences(chart, name)
+        if inf["jupiter"] and name != "Jupiter":
+            parts.append("Jupiter's influence protects it.")
+        if len(inf["malefic"]) >= 2 and not inf["jupiter"]:
+            parts.append(f"It is under combined pressure from {', '.join(inf['malefic'])}.")
+    gaze = sorted(aspected_houses(chart, name))
+    parts.append(f"It aspects your {_houses_text(gaze)} house{'s' if len(gaze) > 1 else ''} "
+                 f"({'; '.join(_domain(h) for h in gaze)}), adding its influence there.")
     if name in CLASSICAL_PLANETS:
         bav = av["bav"][name][p["sign_idx"]]
         parts.append(f"It has **{bav}/8 bindus** in its own Ashtakavarga where it sits "
@@ -265,6 +303,12 @@ def strength_insight(chart, rows):
             reasons.append(r["Dignity"].lower())
         if r["Dig Bala"]:
             reasons.append(f"directional strength in the {ordinal(r['House'])} house")
+        if r["Combust"]:
+            reasons.append(f"combust, {r['Combust']}")
+        if r["Jupiter Support"]:
+            reasons.append(f"supported by {r['Jupiter Support']}")
+        if r["Malefic Influence"] and not r["Jupiter Support"] and r["Malefic Influence"].count(",") >= 1:
+            reasons.append(f"pressured by {r['Malefic Influence']}")
         why = f" ({', '.join(reasons)})" if reasons else ""
         houses = ruled_houses(chart, n)
         areas = f" The areas it rules for you, {'; '.join(_domain(h) for h in houses)}, " if houses else " Its themes "

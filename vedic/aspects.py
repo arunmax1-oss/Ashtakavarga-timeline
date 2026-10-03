@@ -49,6 +49,12 @@ def aspects_on(chart, target):
     return out
 
 
+def aspected_houses(chart, planet):
+    """Houses (from Lagna) that `planet` aspects."""
+    p = chart["planets"]
+    return [(p[planet]["house"] + h - 2) % 12 + 1 for h in ASPECT_HOUSES[planet]]
+
+
 def conjunctions(chart, target):
     p = chart["planets"]
     return [n for n in ASPECT_HOUSES if n != target and p[n]["sign_idx"] == p[target]["sign_idx"]]
@@ -58,8 +64,8 @@ def influences(chart, target):
     """Summary used by remedies and insights: malefic pressure and Jupiter protection on a planet."""
     asp = aspects_on(chart, target)
     conj = conjunctions(chart, target)
-    malefic = ([f"{n} ({ordinal(h)} aspect)" for n, h in asp if n in ASPECTING_MALEFICS]
-               + [f"{n} (same sign)" for n in conj if n in MALEFICS])
-    jupiter = [f"Jupiter ({ordinal(h)} aspect)" for n, h in asp if n == "Jupiter"] + \
-              (["Jupiter (same sign)"] if "Jupiter" in conj else [])
+    malefic = ([f"{n}'s {ordinal(h)} aspect" for n, h in asp if n in ASPECTING_MALEFICS]
+               + [f"{n} in the same sign" for n in conj if n in MALEFICS])
+    jupiter = [f"Jupiter's {ordinal(h)} aspect" for n, h in asp if n == "Jupiter"] + \
+              (["Jupiter in the same sign"] if "Jupiter" in conj else [])
     return {"aspects": asp, "conjunctions": conj, "malefic": malefic, "jupiter": jupiter}
