@@ -1,8 +1,8 @@
 # 🔮 Vedic Astrology & Ashtakavarga Engine
 
 A personal Streamlit app: sidereal birth chart, Nakshatras, D9/D10, Jaimini karakas, yogas,
-Vimshottari Dasha (to Pratyantardasha), classical Ashtakavarga (BAV/SAV) and a transit timing
-engine that scores real Kakshya windows for Saturn, Jupiter, Mars and the Moon.
+Vimshottari Dasha (to Pratyantardasha), classical Ashtakavarga (BAV/SAV), full Shadbala, a transit
+timing engine that scores real Kakshya windows, Bhrigu techniques, remedies and a weekly forecast.
 
 ## Deploy on Streamlit Community Cloud
 
@@ -37,6 +37,8 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/yogas.py` | Yoga detection and the dignity strength score |
 | `vedic/narratives.py` | All interpretation text (edit wording here) |
 | `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each tab |
+| `vedic/weekly.py` | Weekly forecast: daily Panchang, Tara/Chandra Bala day ratings, the week's events |
+| `vedic/bhrigu.py` | Bhrigu Bindu, Bhrigu Chakra Paddhati and Bhrigu Nandi Nadi transit contacts |
 | `vedic/shadbala.py` | Full six-fold Shadbala (BPHS) for the seven classical planets |
 | `vedic/aspects.py` | Combustion and planetary aspects (graha drishti) |
 | `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
@@ -52,7 +54,10 @@ for any assistant to edit without losing earlier work.
 
 - **Real calculations:** planet and Ascendant positions (Swiss Ephemeris, Lahiri/Raman/KP), Nakshatra
   and pada, D9, D10, Chara Karakas, Vimshottari Dasha, Ashtakavarga (classical BPHS tables), and
-  transit Kakshya timing, full Shadbala (conventions listed in `vedic/shadbala.py`).
+  transit Kakshya timing, full Shadbala (conventions listed in `vedic/shadbala.py`), Panchang tithi and
+  nakshatra, Bhrigu Bindu and transit contacts.
+- **Interpretive rules:** weekly day ratings (Tara Bala, Chandra Bala, Moon Ashtakavarga, tithi, weekday lord)
+  and all written readings follow classical rules but are guidance, not certainties.
 - **Simplified:** the *quick indicator* on the Planet Strength tab and *Dhana Yoga* use simple rules.
   Houses and aspects (for remedies and planet stories) are whole-sign.
 - Interpretations are for reflection only.

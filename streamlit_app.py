@@ -8,6 +8,7 @@ import zoneinfo
 import pandas as pd
 import streamlit as st
 
+from vedic import bhrigu
 from vedic import insights as ins
 from vedic import narratives as nar
 from vedic import remedies as rem
@@ -16,10 +17,12 @@ from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sign_table
 from vedic.chart import build_chart, geocode, jd_to_datetime
 from vedic.constants import AYANAMSHAS, HOUSE_INFO, SIGNS, ordinal
 from vedic.dasha import active_periods, dasha_balance, periods_in_window, sub_periods, vimshottari
-from vedic.plots import bav_heatmap, sav_figure, shadbala_figure, strength_figure, timeline_figure, to_local
+from vedic.plots import (bav_heatmap, sav_figure, shadbala_figure, strength_figure, timeline_figure, to_local,
+                         week_figure)
 from vedic.report import build_report
 from vedic.shadbala import COMPONENT_LABELS, shadbala
 from vedic.transits import transit_segments, utc_now
+from vedic.weekly import week_forecast
 from vedic.yogas import detect_yogas, dignity_strength
 
 st.set_page_config(page_title="Vedic Astrology & Ashtakavarga Engine", page_icon="🔮", layout="wide")
@@ -43,6 +46,17 @@ def compute_core(date, time, lat, lon, tz_name, ayanamsha, true_node):
 @st.cache_data(show_spinner=False)
 def cached_transits(chart, av, planet, start, end):
     return transit_segments(chart, av, planet, start, end)
+
+
+@st.cache_data(show_spinner=False)
+def cached_week(chart, av, schedule, week_start, tz, sb):
+    return week_forecast(chart, av, schedule, week_start, tz, sb)
+
+
+@st.cache_data(show_spinner=False)
+def cached_bb_windows(chart, start, end):
+    return bhrigu.contact_windows(chart, bhrigu.bhrigu_bindu(chart)["lon"], ["Saturn", "Jupiter", "Rahu", "Ketu"],
+                                  start, end, orb=2.0)
 
 
 def fmt_date(d):
@@ -115,13 +129,14 @@ with st.expander("📖 New to this? Plain-English glossary of the terms used on 
 
 remedies = rem.build_remedies(chart, av, (md_now, ad_now), now, sb)
 
-tabs = st.tabs(["📜 Summary & Yogas", "🪐 Planets & Nakshatras", "⏳ Dasha", "📊 Ashtakavarga",
-                "🎯 Timing Engine", "⚡ Planet Strength", "🪔 Remedies"])
+(tab_summary, tab_week, tab_planets, tab_dasha, tab_av, tab_timing, tab_bhrigu, tab_strength,
+ tab_remedies) = st.tabs(["📜 Summary", "🗓 This Week", "🪐 Planets", "⏳ Dasha", "📊 Ashtakavarga",
+                          "🎯 Timing", "🔱 Bhrigu", "⚡ Strength", "🪔 Remedies"])
 
 # --------------------------------------------------------------------------------------
 # Summary
 # --------------------------------------------------------------------------------------
-with tabs[0]:
+with tab_summary:
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("🌟 Core Identity & Mindset")
@@ -147,9 +162,81 @@ with tabs[0]:
         st.info("None of the tracked yogas are present: a well-balanced distribution without extreme concentrations.")
 
 # --------------------------------------------------------------------------------------
+# Weekly forecast
+# --------------------------------------------------------------------------------------
+with tab_week:
+    st.markdown("> 💡 A **weekly forecast** built from your chart. Each day is rated from the Moon's transit: its "
+                "**Tara Bala** (the Moon's nakshatra counted from your birth star), **Chandra Bala** (its house from "
+                "your natal Moon; the 8th, *Chandrashtama*, is the hardest), the Moon's own Ashtakavarga points, the "
+                "**tithi** (lunar day) and whether the weekday is ruled by one of your Dasha lords. The week adds "
+                "sign changes, retrograde stations, Dasha changes, strong Kakshya windows and Bhrigu Bindu contacts.")
+    c1, c2 = st.columns([1, 2])
+    week_start = c1.date_input("7 days starting", value=dt.date.today(), format="DD/MM/YYYY", key="week_pick")
+    zones_w = sorted(zoneinfo.available_timezones())
+    week_tz = c2.selectbox("Your current time zone", zones_w, index=zones_w.index(tz_name), key="week_tz",
+                           help="Days and times are shown in this zone. Change it if you now live elsewhere.")
+    wk = cached_week(chart, av, schedule, week_start, week_tz, sb)
+    st.subheader(f"🧭 {week_start:%a %d %b} – {week_start + dt.timedelta(days=6):%a %d %b %Y}")
+    for line in wk["summary"]:
+        st.markdown(f"- {line}")
+
+    st.plotly_chart(week_figure(wk["days"]), use_container_width=True)
+    st.dataframe(pd.DataFrame([{
+        "Day": f"{d['icon']} {d['date']:%a %d %b}", "Rating": d["rating"], "Tithi": d["tithi"]["name"],
+        "Nakshatra": d["nakshatra"], "Moon": f"{d['moon_sign']} ({ordinal(d['from_lagna'])} house)",
+        "Tara": d["tara"]["name"], "Best for": d["best_use"],
+    } for d in wk["days"]]), use_container_width=True, hide_index=True)
+
+    st.subheader("Day by day")
+    for d in wk["days"]:
+        with st.expander(f"{d['icon']} {d['date']:%A %d %b} · {d['rating']} · {d['nakshatra']} · {d['tithi']['name']}"):
+            st.markdown(f"**Best for:** {d['best_use']}.  \n**Tithi:** {d['tithi']['name']} "
+                        f"({d['tithi']['group']}: {d['tithi']['group_use']}). **Weekday lord:** {d['weekday_lord']}.")
+            st.markdown("**Why this rating**\n" + "\n".join(f"- {r}" for r in d["reasons"]))
+            if d["changes"]:
+                st.caption("During the day: " + "; ".join(d["changes"]) + ".")
+
+    st.subheader("📌 Key events this week")
+    if wk["events"]:
+        for e in wk["events"]:
+            st.markdown(f"- **{e['when']:%a %d %b, %H:%M}:** {e['text']}")
+    else:
+        st.caption("No sign changes, retrograde stations or Dasha changes this week.")
+    if wk["strong"]:
+        st.markdown("**Strong transit windows overlapping this week:**")
+        for t in wk["strong"]:
+            st.markdown(f"- {t['planet']} in {t['sign']} (your {ordinal(t['house'])} house), {t['kakshya_lord']} kakshya: "
+                        f"{t['start_local']:%d %b} → {t['end_local']:%d %b}")
+    if wk["bb_hits"]:
+        st.markdown("**Bhrigu Bindu contacts:** " + "; ".join(
+            f"{w['planet']} within {w['closest']:.1f}°" for w in wk["bb_hits"]))
+
+    with st.expander("Planetary climate from your Moon (Gochara)"):
+        st.dataframe(pd.DataFrame([{
+            "Planet": c["planet"], "Sign": c["sign"], "House from Moon": c["from_moon"],
+            "House from Lagna": c["from_lagna"], "Classical result": "Favourable" if c["good"] else "Testing",
+        } for c in wk["climate"]]), use_container_width=True, hide_index=True)
+    st.caption("Ratings are interpretive rules from classical Jyotish, for reflection and planning, not certainties.")
+    week_report = build_report(
+        title=f"Weekly Forecast{' — ' + user_name if user_name else ''}",
+        subtitle=f"7 days from {week_start:%d %b %Y} · Born {fmt_date(dob)} {tob.strftime('%H:%M')} · {address}",
+        metrics=[("Running Dasha", " / ".join(p["lord"] for p in wk["periods"] if p)),
+                 ("Average day", f"{wk['average']:+.1f}"),
+                 ("Best day", max(wk["days"], key=lambda d: d["score"])["weekday"])],
+        sections=[("This week", "\n".join(f"- {x}" for x in wk["summary"])),
+                  ("Day by day", "\n".join(f"- **{d['date']:%a %d %b}: {d['rating']}.** {d['nakshatra']}, "
+                                            f"{d['tithi']['name']}. Best for {d['best_use']}." for d in wk["days"])),
+                  ("Key events", "\n".join(f"- {e['when']:%a %d %b %H:%M}: {e['text']}" for e in wk["events"])
+                   or "- None")],
+        figures=[week_figure(wk["days"])],
+    )
+    st.download_button("📥 Download this week (HTML)", week_report,
+                       file_name=f"weekly_forecast_{week_start:%Y_%m_%d}.html", mime="text/html")
+
+# --------------------------------------------------------------------------------------
 # Planets & Nakshatras
 # --------------------------------------------------------------------------------------
-with tabs[1]:
+with tab_planets:
     st.markdown("> 💡 Each sign is divided into **Nakshatras** (lunar mansions) of 13°20'. They reveal instincts, "
                 "sub-talents and planetary motivations. **D9** (Navamsha) shows inner strength and partnerships; "
                 "**D10** (Dashamsha) shows career.")
@@ -185,7 +272,7 @@ with tabs[1]:
 # --------------------------------------------------------------------------------------
 # Dasha
 # --------------------------------------------------------------------------------------
-with tabs[2]:
+with tab_dasha:
     if md_now:
         st.success(f"📌 **Running now:** {md_now['lord']} Mahadasha · {ad_now['lord']} Antardasha "
                    f"(until {fmt_date(ad_now['end'])}) · {pd_now['lord']} Pratyantardasha (until {fmt_date(pd_now['end'])})")
@@ -232,7 +319,7 @@ with tabs[2]:
 # --------------------------------------------------------------------------------------
 # Ashtakavarga
 # --------------------------------------------------------------------------------------
-with tabs[3]:
+with tab_av:
     st.markdown("> 💡 **Sarvashtakavarga (SAV)** totals the benefic points every planet gives each sign "
                 "(337 in all; 28 is average). Higher points mean that life area — and planets transiting it — "
                 "deliver more easily.")
@@ -270,7 +357,7 @@ with tabs[3]:
 # --------------------------------------------------------------------------------------
 # Timing engine
 # --------------------------------------------------------------------------------------
-with tabs[4]:
+with tab_timing:
     st.markdown("> 💡 Each sign is split into 8 **Kakshyas** of 3°45'. A transiting planet delivers results while it "
                 "crosses a Kakshya whose lord gave it a bindu in your chart. Windows are rated **Strong** when the "
                 "Kakshya has a bindu, the planet's BAV in that sign is ≥ 4, and the sign's SAV is ≥ 28.")
@@ -338,9 +425,46 @@ with tabs[4]:
     st.download_button("📥 Download HTML report", report, file_name="vedic_astrology_report.html", mime="text/html")
 
 # --------------------------------------------------------------------------------------
+# Bhrigu
+# --------------------------------------------------------------------------------------
+with tab_bhrigu:
+    st.markdown("> 💡 Three techniques from the **Bhrigu** tradition. The **Bhrigu Bindu** is a sensitive point "
+                "midway between Rahu and the Moon. **Bhrigu Chakra Paddhati** activates one house for each year of "
+                "life. **Bhrigu Nandi Nadi** reads the natal planets that Jupiter and Saturn are touching by sign.")
+    st.subheader("🎯 Bhrigu Bindu")
+    st.markdown(bhrigu.bhrigu_bindu_reading(chart))
+    bb_windows = cached_bb_windows(chart, now, now + dt.timedelta(days=round(365.25 * 6)))
+    if bb_windows:
+        st.markdown("**Coming activations** (Saturn, Jupiter, Rahu or Ketu within 2° of your Bhrigu Bindu, next 6 years):")
+        st.dataframe(pd.DataFrame([{
+            "Planet": w["planet"], "From": to_local(w["start"], tz_name).date(), "To": to_local(w["end"], tz_name).date(),
+            "Exact around": to_local(w["exact"], tz_name).date(),
+            "Meaning": {"Saturn": "a karmic turning point: responsibilities and lasting change",
+                        "Jupiter": "an opening: growth, opportunity and protection",
+                        "Rahu": "a sudden push: ambition, change and the unexpected",
+                        "Ketu": "a release: endings, letting go and inner turns"}[w["planet"]],
+        } for w in bb_windows]), use_container_width=True, hide_index=True)
+    else:
+        st.caption("No slow-planet contacts with your Bhrigu Bindu in the next 6 years.")
+
+    st.subheader("🔄 Bhrigu Chakra Paddhati (yearly house)")
+    st.markdown(bhrigu.bcp_reading(chart, now))
+    st.dataframe(pd.DataFrame(bhrigu.bcp_cycle(chart, now)), use_container_width=True, hide_index=True)
+
+    st.subheader("🪐 Bhrigu Nandi Nadi: what Jupiter and Saturn are touching now")
+    st.caption("BNN reads a transit planet with the natal planets in the same sign, in trine (5th/9th), opposite "
+               "(7th), and in the adjacent signs (2nd/12th). Strongest links are listed first.")
+    contacts = bhrigu.bnn_contacts(chart, now)
+    if contacts:
+        for r in contacts:
+            st.markdown(f"- {r['text']}")
+    else:
+        st.caption("Jupiter and Saturn are not touching any natal planet by these relations right now.")
+
+# --------------------------------------------------------------------------------------
 # Strength
 # --------------------------------------------------------------------------------------
-with tabs[5]:
+with tab_strength:
     st.markdown("> 💡 **Shadbala** is the classical six-fold strength of a planet (BPHS), measured in *rupas*. "
                 "It adds up strength from **position** (Sthana), **direction** (Dig), **time of birth** (Kala), "
                 "**motion** (Cheshta), **natural brightness** (Naisargika) and **aspects** (Drik). Each planet has a "
@@ -408,7 +532,7 @@ with tabs[5]:
 # --------------------------------------------------------------------------------------
 # Remedies
 # --------------------------------------------------------------------------------------
-with tabs[6]:
+with tab_remedies:
     st.markdown("> 💡 **Remedies (upaya)** are traditional ways to work with a planet that is weak in your birth "
                 "chart or is running your life right now. Every row below shows the exact chart fact that triggered "
                 "it. Each planet has three tiers: a **practical** habit, a **devotional** practice, and (only where "

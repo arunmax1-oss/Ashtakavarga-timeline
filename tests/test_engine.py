@@ -144,3 +144,32 @@ def test_shadbala_polar_birth_uses_nominal_sunrise():
     from vedic.shadbala import shadbala
     sb = shadbala(build_chart(dt.date(1990, 6, 21), dt.time(12, 0), 69.65, 18.96, "Europe/Oslo"))  # midnight sun
     assert sb["_meta"]["sun_approximated"] and sb["_meta"]["vara"] == "Jupiter"  # a Thursday
+
+
+def test_bhrigu():
+    from vedic import bhrigu
+    bb = bhrigu.bhrigu_bindu(CHART)
+    # Rahu 22.74 Aries, Moon 25.49 Aries -> midpoint 24.12 Aries
+    assert bb["sign"] == "Aries" and abs(bb["degree"] - 24.12) < 0.05
+    y = bhrigu.bcp_year(CHART, dt.datetime(2026, 10, 11))
+    assert y["age"] == 41 and y["house"] == 6  # 42nd year of life -> 6th house
+    assert bhrigu.bcp_year(CHART, dt.datetime(1985, 7, 1))["house"] == 1
+    windows = bhrigu.contact_windows(CHART, bb["lon"], ["Saturn"], dt.datetime(2029, 1, 1), dt.datetime(2030, 1, 1))
+    assert windows and windows[0]["closest"] < 0.5  # Saturn crosses 24 Aries in mid-2029
+    assert all(r["relation"] in (1, 2, 5, 7, 9, 12) for r in bhrigu.bnn_contacts(CHART, dt.datetime(2026, 10, 11)))
+
+
+def test_weekly_forecast():
+    from vedic import weekly
+    assert weekly.tithi_of(180.0, 0.0)["name"] == "Krishna Pratipada"
+    assert weekly.tithi_of(179.0, 0.0)["name"] == "Shukla Purnima"
+    assert weekly.tithi_of(359.0, 0.0)["name"] == "Krishna Amavasya"
+    assert weekly.tara_of(CHART, CHART["planets"]["Moon"]["lon"])["name"] == "Janma"
+    av = compute_ashtakavarga(CHART)
+    wk = weekly.week_forecast(CHART, av, vimshottari(CHART), dt.date(2026, 10, 12), "Asia/Kolkata")
+    assert len(wk["days"]) == 7 and wk["summary"]
+    # natal Moon in Aries: the Moon in Scorpio (8th) is Chandrashtama, around 14-15 Oct 2026
+    assert any(d["chandrashtama"] for d in wk["days"])
+    assert all(d["chandrashtama"] == (d["moon_sign"] == "Scorpio") for d in wk["days"])
+    # the Sun enters sidereal Libra (Tula Sankranti) on 17 Oct 2026
+    assert any("Sun" in e["text"] and "Libra" in e["text"] and e["when"].day == 17 for e in wk["events"])

@@ -289,6 +289,21 @@ GLOSSARY = {
     "Shadbala / Rupa": "Shadbala is a planet's six-fold strength (position, direction, time, motion, natural "
                        "brightness, aspects), measured in rupas. Each planet has a minimum it needs; above it, the "
                        "planet can deliver its results.",
+    "Tithi": "The lunar day: each 12° the Moon gains on the Sun. 30 tithis make a lunar month, in two halves: "
+             "Shukla (waxing) and Krishna (waning). Rikta tithis (4th, 9th, 14th) suit finishing, not starting.",
+    "Tara Bala": "The day's nakshatra counted from your birth nakshatra, in a cycle of nine: Sampat, Kshema, "
+                 "Sadhana, Mitra and Parama Mitra are supportive; Vipat, Pratyari and Naidhana are difficult.",
+    "Chandra Bala / Chandrashtama": "The transiting Moon's house counted from your natal Moon. The 1st, 3rd, 6th, "
+                                    "7th, 10th and 11th are supportive; the 8th (Chandrashtama, about 2¼ days a "
+                                    "month) is the time to keep things light.",
+    "Panchang": "The Hindu almanac's five daily elements: tithi, weekday, nakshatra, yoga and karana. The weekly "
+                "forecast uses the first three.",
+    "Bhrigu Bindu": "The midpoint between Rahu and the Moon: a sensitive 'destiny point'. Slow planets crossing it "
+                    "mark turning points.",
+    "Bhrigu Chakra Paddhati (BCP)": "Each year of life activates one house in turn: age 0–1 the 1st house, 1–2 the "
+                                    "2nd, and so on, repeating every 12 years.",
+    "Bhrigu Nandi Nadi (BNN)": "A Nadi school that reads transiting Jupiter and Saturn against the natal planets "
+                               "they touch by sign (same sign, trines, 7th, and adjacent signs).",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
                  "Lahiri is the standard in India.",
     "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "

@@ -132,3 +132,22 @@ def shadbala_figure(sb):
                       xaxis_title="Rupas", yaxis=dict(autorange="reversed"),
                       legend=dict(orientation="h", yanchor="top", y=-0.18, x=0, title_text=""))
     return fig
+
+
+RATING_COLORS = {"Excellent": "#2E9E5B", "Good": "#7CC489", "Mixed": "#E8C547", "Careful": "#E8913A",
+                 "Difficult": "#D8483E"}
+
+
+def week_figure(days):
+    """Bar per day: the day score, coloured by rating."""
+    df = pd.DataFrame([{"Day": f"{d['date']:%a %d %b}", "Score": d["score"], "Rating": d["rating"],
+                        "Moon": f"{d['moon_sign']} · {d['nakshatra']}", "Tara": d["tara"]["name"]} for d in days])
+    fig = px.bar(df, x="Day", y="Score", color="Rating", text="Rating", color_discrete_map=RATING_COLORS,
+                 hover_data={"Moon": True, "Tara": True, "Rating": False},
+                 category_orders={"Day": list(df["Day"]), "Rating": list(RATING_COLORS)},
+                 title="<b>Day-by-day outlook</b>")
+    fig.add_hline(y=0, line_color="gray", line_width=1)
+    fig.update_traces(textposition="outside")
+    fig.update_layout(height=360, margin=dict(l=10, r=10, t=60, b=10), legend_title_text="",
+                      yaxis=dict(range=[min(-8, df["Score"].min() - 1), max(6, df["Score"].max() + 1.5)]))
+    return fig
