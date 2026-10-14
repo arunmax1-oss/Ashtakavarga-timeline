@@ -14,6 +14,8 @@ These are interpretive rules for reflection, not certainties.
 import datetime as dt
 import zoneinfo
 
+import swisseph as swe
+
 from .bhrigu import bcp_year, bhrigu_bindu, contact_windows
 from .chart import house_from, julian_day, jd_to_datetime, planet_longitude, set_ayanamsha
 from .constants import HOUSE_INFO, NAKSHATRA_SPAN, NAKSHATRAS, SIGNS, ordinal
@@ -103,7 +105,50 @@ def _changes(jd0, jd1, value, label, tz_name):
     return out
 
 
-def day_forecast(chart, av, schedule, date, tz_name):
+# Which eighth of the daytime (sunrise to sunset) each period falls in, by weekday (Monday first), 1-based.
+RAHU_KALAM = [2, 7, 5, 6, 4, 3, 8]
+YAMAGANDA = [4, 3, 2, 1, 7, 6, 5]
+GULIKA = [6, 5, 4, 3, 2, 1, 7]
+
+
+def day_timings(date, lat, lon, tz_name):
+    """Sunrise, sunset, Rahu Kalam, Yamaganda, Gulika Kalam and Abhijit Muhurta for a civil date and place.
+
+    Returns None where the Sun does not rise or set (polar day/night).
+    """
+    start = julian_day(_utc(dt.datetime.combine(date, dt.time(0, 0)), tz_name))
+    geo = (lon, lat, 0)
+    try:
+        flag_r, rise = swe.rise_trans(start, swe.SUN, swe.CALC_RISE, geo, 0, 0, swe.FLG_MOSEPH)
+        flag_s, sset = swe.rise_trans(rise[0], swe.SUN, swe.CALC_SET, geo, 0, 0, swe.FLG_MOSEPH)
+    except swe.Error:
+        return None
+    if flag_r < 0 or flag_s < 0 or not (start <= rise[0] < start + 1):
+        return None
+    sr, ss = rise[0], sset[0]
+    part = (ss - sr) / 8
+    wd = date.weekday()
+
+    def span(k):
+        a, b = sr + (k - 1) * part, sr + k * part
+        return (_local(jd_to_datetime(a), tz_name), _local(jd_to_datetime(b), tz_name))
+
+    mid = (sr + ss) / 2
+    muhurta = (ss - sr) / 15
+    return {
+        "sunrise": _local(jd_to_datetime(sr), tz_name), "sunset": _local(jd_to_datetime(ss), tz_name),
+        "rahu_kalam": span(RAHU_KALAM[wd]), "yamaganda": span(YAMAGANDA[wd]), "gulika": span(GULIKA[wd]),
+        "abhijit": (_local(jd_to_datetime(mid - muhurta / 2), tz_name), _local(jd_to_datetime(mid + muhurta / 2), tz_name)),
+        "abhijit_note": "traditionally avoided on Wednesdays" if wd == 2 else "",
+    }
+
+
+def fmt_span(span):
+    return f"{span[0]:%H:%M}–{span[1]:%H:%M}"
+
+
+def day_forecast(chart, av, schedule, date, tz_name, place=None):
+    """`place` = (lat, lon) of where you are now, for sunrise-based timings; defaults to the birth place."""
     """Rate one civil day.
 
     The tithi is the one prevailing at 06:00 local time (the Panchang convention of sunrise). The Moon's sign
@@ -159,7 +204,10 @@ def day_forecast(chart, av, schedule, date, tz_name):
                           lambda v: f"Nakshatra {NAKSHATRAS[v]} begins", tz_name))
 
     use = f"{_domain(from_lagna)} ({ordinal(from_lagna)} house); {WEEKDAY_THEMES[lord]}"
+    lat, lon = place if place else (chart["lat"], chart["lon"])
+    timings = day_timings(date, lat, lon, tz_name)
     return {"date": date, "weekday": f"{date:%A}", "weekday_lord": lord, "tithi": tithi, "nakshatra": NAKSHATRAS[nak],
+            "timings": timings,
             "moon_sign": SIGNS[sign], "from_moon": from_moon, "from_lagna": from_lagna, "moon_bav": bav,
             "tara": tara, "score": score, "rating": rating, "icon": icon, "reasons": reasons,
             "changes": changes, "best_use": use, "chandrashtama": from_moon == 8}
@@ -238,9 +286,9 @@ def _gochara_climate(chart, when):
     return out
 
 
-def week_forecast(chart, av, schedule, week_start, tz_name, sb=None):
+def week_forecast(chart, av, schedule, week_start, tz_name, sb=None, place=None):
     """Forecast for the 7 days starting on week_start (a date). Returns days, events and a summary."""
-    days = [day_forecast(chart, av, schedule, week_start + dt.timedelta(days=i), tz_name) for i in range(7)]
+    days = [day_forecast(chart, av, schedule, week_start + dt.timedelta(days=i), tz_name, place) for i in range(7)]
     start = _utc(dt.datetime.combine(week_start, dt.time()), tz_name)
     end = start + dt.timedelta(days=7)
     mid = start + dt.timedelta(days=3.5)

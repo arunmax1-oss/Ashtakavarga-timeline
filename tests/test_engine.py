@@ -173,3 +173,97 @@ def test_weekly_forecast():
     assert all(d["chandrashtama"] == (d["moon_sign"] == "Scorpio") for d in wk["days"])
     # the Sun enters sidereal Libra (Tula Sankranti) on 17 Oct 2026
     assert any("Sun" in e["text"] and "Libra" in e["text"] and e["when"].day == 17 for e in wk["events"])
+
+
+def test_vargas_and_charts():
+    from vedic.chartviz import north_indian_svg, south_indian_svg
+    from vedic.vargas import VARGAS, varga_positions
+    for v in VARGAS:
+        pos = varga_positions(CHART, v)
+        assert len(pos) == 10 and all(0 <= s < 12 for s in pos.values())
+    assert varga_positions(CHART, "D1")["Ascendant"] == CHART["asc_sign_idx"]
+    assert varga_positions(CHART, "D9")["Sun"] == 6  # Sun 0.55 Gemini (air) -> first navamsa from Libra
+    for fn in (south_indian_svg, north_indian_svg):
+        svg = fn(CHART, varga_positions(CHART, "D1"), "Rasi")
+        assert svg.startswith("<svg") and "Sa℞" in svg and "Mo 25°" in svg
+
+
+def test_sensitivity():
+    from vedic.sensitivity import sensitivity, warning
+    rows = {r["factor"]: r for r in sensitivity(CHART)}
+    # Lagna at 2.1 Libra: becomes Virgo about 9 minutes earlier
+    assert rows["Lagna (Ascendant) sign"]["earlier"] == (9, "Virgo")
+    assert "Virgo" in warning(list(rows.values()))
+
+
+def test_daily_timings():
+    from vedic.weekly import day_timings, fmt_span
+    t = day_timings(dt.date(2026, 10, 14), 12.97, 77.59, "Asia/Kolkata")  # a Wednesday in Bengaluru
+    assert fmt_span(t["rahu_kalam"]).startswith("12:0")  # Wednesday Rahu Kalam ~12:00-13:30
+    assert t["abhijit_note"]
+    assert day_timings(dt.date(2026, 6, 21), 78.2, 15.6, "Arctic/Longyearbyen") is None  # midnight sun
+
+
+def test_muhurta():
+    from vedic import muhurta
+    av = compute_ashtakavarga(CHART)
+    best, ruled_out = muhurta.find_days(CHART, av, vimshottari(CHART), "Travel or relocation",
+                                        dt.date(2026, 10, 12), 30, "Asia/Kolkata")
+    assert best and ruled_out > 0
+    assert not any(d["chandrashtama"] or d["tara"]["name"] in muhurta.HARD_TARAS for d in best)
+
+
+def test_saturn_timeline():
+    from vedic.transits import saturn_timeline
+    periods, cycles = saturn_timeline(CHART, CHART["birth_utc"], dt.datetime(2040, 1, 1))
+    # natal Moon in Aries: Sade Sati when Saturn is in Pisces, Aries, Taurus; it entered Pisces on 29 Mar 2025
+    assert any(c["start"].date() == dt.date(2025, 3, 29) for c in cycles)
+    assert all(p["sign"] in ("Pisces", "Aries", "Taurus", "Cancer", "Scorpio") for p in periods)
+
+
+def test_more_yogas():
+    from vedic.yogas import detect_yogas
+    names = [y["Yoga"] for y in detect_yogas(CHART)]
+    assert "Yogakaraka Saturn" in names  # Saturn rules the 4th and 5th for Libra Lagna
+    assert "Neecha Bhanga Raja Yoga" in names and any(n.startswith("Raja Yoga") for n in names)
+
+
+def test_compatibility():
+    from vedic.compatibility import YONI_ORDER, YONI_TABLE, ashtakoota, manglik
+    assert all(YONI_TABLE[i][j] == YONI_TABLE[j][i] for i in range(14) for j in range(14))
+    assert YONI_TABLE[YONI_ORDER.index("Cat")][YONI_ORDER.index("Rat")] == 0
+    same = ashtakoota(CHART, CHART)
+    nadi = next(r for r in same["rows"] if r["Koota"] == "Nadi")
+    assert nadi["Points"] == 0 and same["total"] == 28
+    assert manglik(CHART)["house_lagna"] == 9
+
+
+def test_alternative_dashas():
+    from vedic.constants import NAKSHATRAS
+    from vedic.dasha_alt import chara_dasha, yogini_dasha
+    assert [NAKSHATRAS[n] for n in range(27) if (((n + 1) + 3) % 8 - 1) % 8 == 0] == ["Ardra", "Chitra", "Shravana"]
+    y = yogini_dasha(CHART)
+    assert y[0]["name"] == "Bhadrika"  # Bharani -> Bhadrika
+    ch, direction = chara_dasha(CHART)
+    assert ch[0]["sign"] == "Libra" and ch[0]["years"] == 6  # Libra to Venus in Aries, counted forward
+    assert next(p for p in ch if p["sign"] == "Gemini")["years"] == 12  # Mercury in its own sign
+
+
+def test_compare_and_journal():
+    import pandas as pd
+    from vedic import compare, journal
+    theirs, bad = compare.parse_positions("Lagna 2 Li 06\nSun 0°33' Gemini\nMoon Ar 25:29:24\nnonsense")
+    assert set(theirs) == {"Ascendant", "Sun", "Moon"} and bad == ["nonsense"]
+    rows = compare.compare(CHART, theirs)
+    assert all(r["Verdict"] == "match" for r in rows)
+    shifted = {k: (v - 0.5) % 360 for k, v in theirs.items() if k != "Ascendant"}
+    assert "ayanamsha" in compare.diagnose(compare.compare(CHART, shifted))
+    df = journal.add(journal.empty(), dt.date(2026, 10, 14), "Career", "Tough meeting", -2)
+    csv = journal.to_csv(df)
+    import io
+    back = journal.from_csv(io.StringIO(csv))
+    assert len(back) == 1 and back.iloc[0]["felt"] == -2
+    av = compute_ashtakavarga(CHART)
+    from vedic.weekly import day_forecast
+    out, summary = journal.evaluate(back, lambda d: day_forecast(CHART, av, vimshottari(CHART), d, "Asia/Kolkata"))
+    assert isinstance(out, pd.DataFrame) and summary["entries"] == 1

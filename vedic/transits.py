@@ -82,3 +82,50 @@ def transit_segments(chart, av, planet, start, end):
 
 def utc_now():
     return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+
+
+SATURN_PHASES = {12: "Sade Sati: rising phase", 1: "Sade Sati: peak phase", 2: "Sade Sati: setting phase",
+                 4: "Ardhashtama Shani (4th from Moon)", 8: "Ashtama Shani (8th from Moon)"}
+
+
+def saturn_timeline(chart, start, end):
+    """Every Saturn sign period between start and end that is a Sade Sati, Ashtama or Ardhashtama phase,
+    plus the overall Sade Sati cycles. Retrograde re-entries appear as separate short periods."""
+    from .chart import house_from, jd_to_datetime as to_dt
+    set_ayanamsha(chart["ayanamsha"])
+    moon = chart["planets"]["Moon"]["sign_idx"]
+    jd, jd_end = julian_day(start), julian_day(end)
+
+    def sign(j):
+        return int(planet_longitude(j, "Saturn")[0] // 30)
+
+    segments, cur, seg_start = [], sign(jd), jd
+    j = jd
+    while j < jd_end:
+        nxt = min(j + 5, jd_end)
+        s = sign(nxt)
+        if s != cur:
+            lo, hi = j, nxt
+            while hi - lo > 1 / 24:
+                mid = (lo + hi) / 2
+                lo, hi = (mid, hi) if sign(mid) == cur else (lo, mid)
+            segments.append((cur, seg_start, hi))
+            cur, seg_start = s, hi
+        j = nxt
+    segments.append((cur, seg_start, jd_end))
+
+    periods = []
+    for s, a, b in segments:
+        h = house_from(s, moon)
+        if h in SATURN_PHASES:
+            periods.append({"phase": SATURN_PHASES[h], "house_from_moon": h, "sign": SIGNS[s],
+                            "start": to_dt(a), "end": to_dt(b)})
+
+    cycles = []
+    for p in periods:
+        if p["house_from_moon"] in (12, 1, 2):
+            if cycles and (p["start"] - cycles[-1]["end"]).days < 400:
+                cycles[-1]["end"] = p["end"]
+            else:
+                cycles.append({"start": p["start"], "end": p["end"]})
+    return periods, cycles

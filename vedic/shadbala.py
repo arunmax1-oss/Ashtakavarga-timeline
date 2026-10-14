@@ -22,6 +22,7 @@ Conventions where classical sources differ (stated so results can be compared wi
 import swisseph as swe
 
 from .chart import navamsha_sign, set_ayanamsha
+from .vargas import VARGAS as VARGA_TABLE
 from .constants import CLASSICAL_PLANETS, OWN_SIGNS, SIGN_LORDS, SIGNS
 
 _FLAGS = swe.FLG_MOSEPH
@@ -75,40 +76,7 @@ def _arc(a, b):
 # --------------------------------------------------------------------------------------
 # Divisional signs used by Saptavargaja Bala (D1 and D9 come from chart.py)
 # --------------------------------------------------------------------------------------
-def _hora(lon):
-    s, d = int(lon // 30), lon % 30
-    odd = s % 2 == 0
-    return 4 if (d < 15) == odd else 3  # Leo (Sun's hora) or Cancer (Moon's hora)
-
-
-def _drekkana(lon):
-    return (int(lon // 30) + 4 * int((lon % 30) // 10)) % 12
-
-
-def _saptamsa(lon):
-    s = int(lon // 30)
-    start = s if s % 2 == 0 else (s + 6) % 12
-    return (start + int((lon % 30) // (30 / 7))) % 12
-
-
-def _dwadasamsa(lon):
-    return (int(lon // 30) + int((lon % 30) // 2.5)) % 12
-
-
-def _trimsamsa(lon):
-    s, d = int(lon // 30), lon % 30
-    if s % 2 == 0:  # odd sign
-        for limit, sign in [(5, 0), (10, 10), (18, 8), (25, 2), (30, 6)]:
-            if d < limit:
-                return sign
-    for limit, sign in [(5, 1), (12, 5), (20, 11), (25, 9), (30, 7)]:
-        if d < limit:
-            return sign
-    return s
-
-
-VARGAS = {"D1": lambda lon: int(lon // 30), "D2": _hora, "D3": _drekkana, "D7": _saptamsa,
-          "D9": navamsha_sign, "D12": _dwadasamsa, "D30": _trimsamsa}
+VARGAS = {name: VARGA_TABLE[name][1] for name in ("D1", "D2", "D3", "D7", "D9", "D12", "D30")}
 
 
 # --------------------------------------------------------------------------------------

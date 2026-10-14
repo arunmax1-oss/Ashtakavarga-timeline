@@ -2,7 +2,9 @@
 
 A personal Streamlit app: sidereal birth chart, Nakshatras, D9/D10, Jaimini karakas, yogas,
 Vimshottari Dasha (to Pratyantardasha), classical Ashtakavarga (BAV/SAV), full Shadbala, a transit
-timing engine that scores real Kakshya windows, Bhrigu techniques, remedies and a weekly forecast.
+timing engine that scores real Kakshya windows, Bhrigu techniques, remedies, a weekly forecast with daily
+timings, an activity planner, South/North Indian charts and divisional charts, birth-time sensitivity,
+Yogini and Chara Dasha, compatibility matching, a prediction journal and saved profiles.
 
 ## Deploy on Streamlit Community Cloud
 
@@ -39,6 +41,14 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each tab |
 | `vedic/weekly.py` | Weekly forecast: daily Panchang, Tara/Chandra Bala day ratings, the week's events |
 | `vedic/bhrigu.py` | Bhrigu Bindu, Bhrigu Chakra Paddhati and Bhrigu Nandi Nadi transit contacts |
+| `vedic/vargas.py` | Divisional charts D1, D2, D3, D4, D7, D9, D10, D12, D30 |
+| `vedic/chartviz.py` | South and North Indian chart drawings (SVG) |
+| `vedic/sensitivity.py` | Birth-time sensitivity: minutes until the Lagna, D9 Lagna, Moon sign or nakshatra change |
+| `vedic/muhurta.py` | Activity planner: best days for an activity in the coming weeks |
+| `vedic/dasha_alt.py` | Yogini Dasha and Jaimini Chara Dasha |
+| `vedic/compatibility.py` | Ashtakoota guna milan (36 points) and Manglik check |
+| `vedic/compare.py` | Compare positions with other software and diagnose differences |
+| `vedic/journal.py` | Prediction journal (CSV) and agreement with the day ratings |
 | `vedic/shadbala.py` | Full six-fold Shadbala (BPHS) for the seven classical planets |
 | `vedic/aspects.py` | Combustion and planetary aspects (graha drishti) |
 | `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
