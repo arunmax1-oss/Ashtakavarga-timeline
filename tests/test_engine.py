@@ -228,14 +228,19 @@ def test_more_yogas():
     assert "Neecha Bhanga Raja Yoga" in names and any(n.startswith("Raja Yoga") for n in names)
 
 
-def test_compatibility():
-    from vedic.compatibility import YONI_ORDER, YONI_TABLE, ashtakoota, manglik
-    assert all(YONI_TABLE[i][j] == YONI_TABLE[j][i] for i in range(14) for j in range(14))
-    assert YONI_TABLE[YONI_ORDER.index("Cat")][YONI_ORDER.index("Rat")] == 0
-    same = ashtakoota(CHART, CHART)
-    nadi = next(r for r in same["rows"] if r["Koota"] == "Nadi")
-    assert nadi["Points"] == 0 and same["total"] == 28
-    assert manglik(CHART)["house_lagna"] == 9
+def test_career():
+    from vedic import career
+    from vedic.shadbala import shadbala
+    av = compute_ashtakavarga(CHART)
+    sb = shadbala(CHART)
+    prof = career.profile(CHART, av, sb)
+    # Libra Lagna: 10th house Cancer ruled by the Moon, which is also the Amatyakaraka
+    assert prof["h10_sign"] == "Cancer" and prof["lord10"] == "Moon" and prof["amk"] == "Moon"
+    assert prof["fields"][0]["planet"] == "Moon" and career.profile_text(CHART, prof)
+    periods = career.career_periods(CHART, vimshottari(CHART), sb, dt.datetime(2026, 10, 15), years=12)
+    assert periods[0]["ad"] == "Moon" and periods[0]["theme"] == "Career peak"
+    transits = career.career_transits(CHART, dt.datetime(2026, 10, 15))
+    assert any(t["planet"] == "Jupiter" and t["sign"] == "Cancer" for t in transits)
 
 
 def test_alternative_dashas():

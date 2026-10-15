@@ -4,7 +4,7 @@ A personal Streamlit app: sidereal birth chart, Nakshatras, D9/D10, Jaimini kara
 Vimshottari Dasha (to Pratyantardasha), classical Ashtakavarga (BAV/SAV), full Shadbala, a transit
 timing engine that scores real Kakshya windows, Bhrigu techniques, remedies, a weekly forecast with daily
 timings, an activity planner, South/North Indian charts and divisional charts, birth-time sensitivity,
-Yogini and Chara Dasha, compatibility matching, a prediction journal and saved profiles.
+Yogini and Chara Dasha, a career (Job) analysis, a prediction journal and saved profiles.
 
 ## Deploy on Streamlit Community Cloud
 
@@ -46,7 +46,7 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/sensitivity.py` | Birth-time sensitivity: minutes until the Lagna, D9 Lagna, Moon sign or nakshatra change |
 | `vedic/muhurta.py` | Activity planner: best days for an activity in the coming weeks |
 | `vedic/dasha_alt.py` | Yogini Dasha and Jaimini Chara Dasha |
-| `vedic/compatibility.py` | Ashtakoota guna milan (36 points) and Manglik check |
+| `vedic/career.py` | Job tab: 10th house, D10, Amatyakaraka, suitable fields, job vs business, career timeline |
 | `vedic/compare.py` | Compare positions with other software and diagnose differences |
 | `vedic/journal.py` | Prediction journal (CSV) and agreement with the day ratings |
 | `vedic/shadbala.py` | Full six-fold Shadbala (BPHS) for the seven classical planets |

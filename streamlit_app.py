@@ -12,7 +12,7 @@ import streamlit as st
 
 from vedic import bhrigu
 from vedic import compare as cmp
-from vedic import compatibility as compat
+from vedic import career
 from vedic import insights as ins
 from vedic import journal as jr
 from vedic import muhurta as mh
@@ -263,10 +263,10 @@ if sens_warning:
 
 remedies = rem.build_remedies(chart, av, (md_now, ad_now), now, sb)
 
-(tab_summary, tab_week, tab_planner, tab_planets, tab_dasha, tab_av, tab_timing, tab_bhrigu, tab_strength,
- tab_remedies, tab_match, tab_journal) = st.tabs(
-    ["📜 Summary", "🗓 This Week", "📅 Planner", "🪐 Planets", "⏳ Dasha", "📊 Ashtakavarga", "🎯 Timing",
-     "🔱 Bhrigu", "⚡ Strength", "🪔 Remedies", "💞 Match", "📓 Journal"])
+(tab_summary, tab_week, tab_planner, tab_job, tab_planets, tab_dasha, tab_av, tab_timing, tab_bhrigu, tab_strength,
+ tab_remedies, tab_journal) = st.tabs(
+    ["📜 Summary", "🗓 This Week", "📅 Planner", "💼 Job", "🪐 Planets", "⏳ Dasha", "📊 Ashtakavarga", "🎯 Timing",
+     "🔱 Bhrigu", "⚡ Strength", "🪔 Remedies", "📓 Journal"])
 
 # --------------------------------------------------------------------------------------
 # Summary
@@ -423,6 +423,82 @@ with tab_planner:
         st.info("No suitable days in this range. Try a longer search window.")
     st.caption("A traditional muhurta also checks the Lagna at the start time; for major events, confirm with an "
                "astrologer.")
+
+# --------------------------------------------------------------------------------------
+# Job (career)
+# --------------------------------------------------------------------------------------
+with tab_job:
+    st.markdown("> 💡 Career in Vedic astrology is read from the **10th house** (work and status), its lord, planets "
+                "in or aspecting it, the **Amatyakaraka** (career planet) and the **D10 (Dashamsa)** chart. The 6th "
+                "house shows employment and competition, the 7th business and partnerships, and the 2nd and 11th "
+                "income. Timing comes from the Dasha periods of these planets and from Jupiter and Saturn's transits.")
+    prof = career.profile(chart, av, sb)
+    j1, j2, j3, j4 = st.columns(4)
+    j1.metric("10th house", prof["h10_sign"], f"lord {prof['lord10']}", delta_color="off")
+    j2.metric("Career planet (AmK)", prof["amk"], f"{ordinal(prof['amk_house'])} house", delta_color="off")
+    j3.metric("10th house SAV", prof["sav10"], "strong" if prof["sav10"] >= 30 else "average" if prof["sav10"] >= 28
+              else "below average", delta_color="off")
+    j4.metric("Job or business", "Business" if prof["business"] > prof["service"] + 2 else
+              "Employment" if prof["service"] > prof["business"] + 2 else "Either",
+              f"{prof['service']} vs {prof['business']}", delta_color="off",
+              help="Employment score (6th house, Saturn, 10th lord in 6th/10th) vs business score (7th house, "
+                   "Mercury, 10th lord in 3rd/7th/11th).")
+
+    st.subheader("🧭 Your career profile")
+    for line in career.profile_text(chart, prof):
+        st.markdown(f"- {line}")
+    st.markdown(f"- **Job or business:** {prof['leaning']}")
+
+    cj1, cj2 = st.columns([1, 1])
+    with cj1:
+        st.subheader("🎯 Fields that suit you")
+        st.caption("Ranked by the planets that rule and influence your career: the 10th lord and Amatyakaraka count "
+                   "most, then planets in or aspecting the 10th, then the D10 Lagna and 10th lords.")
+        for f in prof["fields"]:
+            st.markdown(f"**{f['planet']}** (weight {f['weight']}): " + ", ".join(f["fields"]))
+    with cj2:
+        jstyle = st.radio("D10 chart style", ["South Indian", "North Indian"], horizontal=True, key="d10_style")
+        st.markdown(chart_svg(jstyle, chart, varga_positions(chart, "D10"), "Dasamsa (D10)", False),
+                    unsafe_allow_html=True)
+
+    st.subheader("📈 Career timeline (Dasha periods)")
+    st.caption("Each Antardasha is tagged by the career role its lord holds in your chart (10th lord, Amatyakaraka, "
+               "6th, 11th, 2nd, 12th or 8th lord); 'quality' comes from the lord's Shadbala.")
+    periods_c = career.career_periods(chart, schedule, sb, now, years=12)
+    st.dataframe(pd.DataFrame([{
+        "Period": f"{p_['md']}–{p_['ad']}", "From": fmt_date(p_["start"]), "To": fmt_date(p_["end"]),
+        "Theme": p_["theme"], "What to expect": p_["meaning"], "Quality": p_["quality"], "Career roles": p_["roles"],
+        "Peak windows inside": ", ".join(f"{pd_['lord']} {pd_['start']:%b %Y}" for pd_ in p_["peaks"][:2]) or "—",
+    } for p_ in periods_c]), width="stretch", hide_index=True)
+    nxt = next((p_ for p_ in periods_c if p_["theme"] in ("Career peak", "Job change", "Career direction")
+                and p_["start"] > now), None)
+    if nxt:
+        st.info(f"**Next major career window:** {nxt['md']}–{nxt['ad']} from {fmt_date(nxt['start'])}: "
+                f"{nxt['theme'].lower()} ({nxt['meaning']}).")
+
+    st.subheader("🪐 Transits over your career houses (next 3 years)")
+    ct = career.career_transits(chart, now)
+    if ct:
+        st.dataframe(pd.DataFrame([{
+            "Planet": t["planet"], "In": t["sign"], "From": fmt_date(t["start"]), "To": fmt_date(t["end"]),
+            "Effect on career": t["what"], "What it brings": t["tone"],
+        } for t in ct]), width="stretch", hide_index=True)
+    else:
+        st.caption("Jupiter, Saturn and Rahu do not touch your 10th or 11th house in the next 3 years.")
+
+    st.subheader("📅 Good days for job moves")
+    jact = st.radio("Activity", ["Job interview or application", "Start a new job or business"], horizontal=True,
+                    key="job_act")
+    jtz, jplace = st.session_state.get("week_ctx", (tz_name, (lat, lon)))
+    jbest, _ = cached_muhurta(chart, av, schedule, jact, dt.date.today(), 45, jtz, jplace)
+    if jbest:
+        st.dataframe(pd.DataFrame([{
+            "Date": f"{d['date']:%a %d %b %Y}", "Score": d["muhurta_score"], "Nakshatra": d["nakshatra"],
+            "Best slot (Abhijit)": fmt_span(d["timings"]["abhijit"]) if d["timings"] else "—",
+            "Avoid (Rahu Kalam)": fmt_span(d["timings"]["rahu_kalam"]) if d["timings"] else "—",
+            "Why": "; ".join(d["muhurta_reasons"]) or "Personal day rating",
+        } for d in jbest[:6]]), width="stretch", hide_index=True)
+    st.caption("Career readings are classical guidance for reflection and planning, not certainties.")
 
 # --------------------------------------------------------------------------------------
 # Planets & Nakshatras
@@ -854,62 +930,6 @@ with tab_remedies:
             "traditions disagree on their aspects. A single malefic influence, or one eased by Jupiter, is listed as a "
             "note and does not raise the priority.\n\n"
             "A professional reading weighs these factors with judgement and may emphasise different planets.")
-
-# --------------------------------------------------------------------------------------
-# Match (compatibility)
-# --------------------------------------------------------------------------------------
-with tab_match:
-    st.markdown("> 💡 **Ashtakoota (guna milan)** compares two people's Moon signs and nakshatras across 8 factors "
-                "for a total of 36 points; 18 is the traditional minimum. The **Manglik** check looks at Mars. "
-                "Matching is only one input: the full charts and the people themselves matter more.")
-    role = st.radio("In this match, the person in the sidebar is the", ["Groom", "Bride"], horizontal=True,
-                    key="match_role")
-    st.markdown("**Partner's birth details**")
-    q1, q2, q3 = st.columns(3)
-    partner_name = q1.text_input("Partner's name", key="pt_name", placeholder="Optional")
-    pt_dob = q2.date_input("Date of birth", value=dt.date(1988, 1, 1), min_value=dt.date(1900, 1, 1),
-                           max_value=dt.date.today(), format="DD/MM/YYYY", key="pt_dob")
-    pt_tob = q3.time_input("Time of birth", value=dt.time(12, 0), step=60, key="pt_tob")
-    q4, q5 = st.columns([2, 1])
-    pt_place = q4.text_input("Place of birth", value="", key="pt_place", placeholder="City, Country")
-    pt_manual = q5.checkbox("Enter coordinates", key="pt_manual")
-    pt_loc = None
-    if pt_manual:
-        r1, r2, r3 = st.columns(3)
-        zones_m = sorted(zoneinfo.available_timezones())
-        pt_loc = {"lat": r1.number_input("Latitude", value=12.9716, format="%.4f", key="pt_lat"),
-                  "lon": r2.number_input("Longitude", value=77.5946, format="%.4f", key="pt_lon"),
-                  "tz_name": r3.selectbox("Time zone", zones_m, index=zones_m.index("Asia/Kolkata"), key="pt_tz")}
-    elif pt_place.strip():
-        pt_loc = cached_geocode(pt_place.strip())
-        if not pt_loc:
-            st.warning("Couldn't find that place; tick 'Enter coordinates' instead.")
-    if pt_loc:
-        partner, _, _, _ = compute_core(pt_dob, pt_tob, pt_loc["lat"], pt_loc["lon"], pt_loc["tz_name"],
-                                        ayanamsha, true_node)
-        groom, bride = (chart, partner) if role == "Groom" else (partner, chart)
-        res = compat.ashtakoota(groom, bride)
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Guna milan", f"{res['total']:g} / 36", res["verdict"], delta_color="off")
-        k2.metric("Groom's star", res["groom_star"])
-        k3.metric("Bride's star", res["bride_star"])
-        st.dataframe(pd.DataFrame(res["rows"]), width="stretch", hide_index=True,
-                     column_config={"Points": st.column_config.ProgressColumn("Points", format="%.1f",
-                                                                              min_value=0, max_value=8)})
-        for note in res["notes"]:
-            st.warning(note)
-        st.markdown("**Manglik (Kuja dosha) check**")
-        for who_label, ch_ in [(user_name or "You", chart), (partner_name or "Partner", partner)]:
-            mg = compat.manglik(ch_)
-            text = (f"**{who_label}:** Mars is {ordinal(mg['house_lagna'])} from Lagna and {ordinal(mg['house_moon'])} "
-                    f"from the Moon: " + (f"Manglik (from {' and '.join(mg['from'])})" if mg["manglik"] else "not Manglik"))
-            if mg["manglik"] and mg["cancellations"]:
-                text += f"; softened because {'; '.join(mg['cancellations']).lower()}"
-            st.markdown("- " + text + ".")
-        st.caption("Tradition considers Manglik dosha balanced when both partners are Manglik. Koota tables vary a "
-                   "little between traditions; this uses common North Indian values.")
-    else:
-        st.info("Enter the partner's birth place (or coordinates) to see the match.")
 
 # --------------------------------------------------------------------------------------
 # Journal

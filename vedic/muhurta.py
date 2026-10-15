@@ -21,6 +21,11 @@ ACTIVITIES = {
         "weekdays": ["Wednesday", "Thursday", "Friday", "Sunday"],
         "why": "Fixed and swift stars favour lasting, quick-moving enterprises.",
     },
+    "Job interview or application": {
+        "nakshatras": SWIFT + FIXED + ["Punarvasu", "Chitra", "Anuradha", "Shravana", "Revati"],
+        "weekdays": ["Wednesday", "Thursday", "Friday", "Sunday"],
+        "why": "Mercury (communication), Jupiter (favour of seniors) and Sun (authority) days with swift and steady stars.",
+    },
     "Sign a contract or agreement": {
         "nakshatras": FIXED + SWIFT + SOFT,
         "weekdays": ["Wednesday", "Thursday", "Friday"],

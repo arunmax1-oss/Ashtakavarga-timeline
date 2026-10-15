@@ -311,13 +311,13 @@ GLOSSARY = {
     "Muhurta": "Choosing an auspicious time to begin an activity, from the nakshatra, tithi, weekday and your chart.",
     "Yogini Dasha": "An 8-period, 36-year Dasha system used to cross-check Vimshottari.",
     "Chara Dasha": "Jaimini's sign-based Dasha: each period is ruled by a sign rather than a planet.",
-    "Ashtakoota / Guna milan": "Compatibility matching of two Moon signs and nakshatras across 8 factors, out of 36 "
-                               "points.",
-    "Manglik (Kuja dosha)": "Mars in the 1st, 2nd, 4th, 7th, 8th or 12th from the Lagna or Moon; traditionally "
-                            "weighed in marriage matching.",
     "Raja Yoga": "A link between the lords of a kendra (1, 4, 7, 10) and a trikona (1, 5, 9): a classic sign of rise "
                  "and status.",
     "Yogakaraka": "A planet that rules both a kendra and a trikona for your Lagna; the most rewarding planet in the chart.",
+    "Amatyakaraka (career planet)": "The planet with the second-highest degree in your chart; it shows the kind of "
+                                    "work that fulfils you.",
+    "D10 (Dasamsa)": "The career divisional chart: each sign split into 10 parts. Strong planets here support "
+                     "professional success.",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
                  "Lahiri is the standard in India.",
     "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "
