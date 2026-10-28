@@ -272,3 +272,20 @@ def test_compare_and_journal():
     from vedic.weekly import day_forecast
     out, summary = journal.evaluate(back, lambda d: day_forecast(CHART, av, vimshottari(CHART), d, "Asia/Kolkata"))
     assert isinstance(out, pd.DataFrame) and summary["entries"] == 1
+
+
+def test_monthly_forecast():
+    from vedic import monthly
+    from vedic.shadbala import shadbala
+    av = compute_ashtakavarga(CHART)
+    sb = shadbala(CHART)
+    sched = vimshottari(CHART)
+    mf = monthly.month_forecast(CHART, av, sched, sb, 2026, 11, "Asia/Kolkata")
+    assert len(mf["days"]) == 30 and {a["area"] for a in mf["areas"]} == set(monthly.AREAS)
+    assert all(a["rating"] in ("Excellent", "Good", "Mixed", "Challenging", "Difficult") for a in mf["areas"])
+    texts = " ".join(e["text"] for e in mf["events"])
+    assert "New Moon" in texts and "Full Moon" in texts and "Sun** moves into **Scorpio" in texts
+    feb = monthly.month_forecast(CHART, av, sched, sb, 2026, 2, "Asia/Kolkata")
+    assert any("Solar eclipse" in e["text"] and e["when"].day == 17 for e in feb["events"])  # 17 Feb 2026
+    yr = monthly.year_overview(CHART, av, sched, sb, 2026, 11, 12, "Asia/Kolkata")
+    assert len(yr) == 12 and yr[0]["label"] == "Nov 2026"

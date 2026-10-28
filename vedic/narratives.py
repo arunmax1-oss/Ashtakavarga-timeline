@@ -318,6 +318,8 @@ GLOSSARY = {
                                     "work that fulfils you.",
     "D10 (Dasamsa)": "The career divisional chart: each sign split into 10 parts. Strong planets here support "
                      "professional success.",
+    "Eclipse (Grahan)": "Solar and lunar eclipses are traditionally avoided for new starts; the house they fall in "
+                        "can see turning points over the following months.",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "
                  "Lahiri is the standard in India.",
     "Rahu / Ketu": "The Moon's two nodes (points where eclipses happen). Not physical planets, but treated as "

@@ -151,3 +151,40 @@ def week_figure(days):
     fig.update_layout(height=360, margin=dict(l=10, r=10, t=60, b=10), legend_title_text="",
                       yaxis=dict(range=[min(-8, df["Score"].min() - 1), max(6, df["Score"].max() + 1.5)]))
     return fig
+
+
+def month_calendar_html(days, first_weekday=0):
+    """A Monday-first calendar grid; each day coloured by its rating."""
+    import calendar as _cal
+    import html as _html
+    colors = {"Excellent": "#2E9E5B", "Good": "#4f9d69", "Mixed": "#8a7a2c", "Careful": "#a8642a", "Difficult": "#9c3a33"}
+    first = days[0]["date"]
+    cells = ['<td class="blank"></td>'] * first.weekday()
+    for d in days:
+        tip = _html.escape(f"{d['rating']}: {d['nakshatra']}, {d['tithi']['name']}, Tara {d['tara']['name']}")
+        mark = " ⚠" if d["chandrashtama"] else ""
+        cells.append(f'<td title="{tip}" style="background:{colors[d["rating"]]}"><div class="n">{d["date"].day}{mark}</div>'
+                     f'<div class="s">{_html.escape(d["nakshatra"][:10])}</div><div class="s">{d["rating"]}</div></td>')
+    while len(cells) % 7:
+        cells.append('<td class="blank"></td>')
+    rows = "".join("<tr>" + "".join(cells[i:i + 7]) + "</tr>" for i in range(0, len(cells), 7))
+    head = "".join(f"<th>{d}</th>" for d in _cal.day_abbr)
+    return f"""<style>
+.mcal{{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;font-family:sans-serif}}
+.mcal th{{color:#9aa4b2;font-weight:500;font-size:12px;padding:2px}}
+.mcal td{{border-radius:6px;padding:6px;vertical-align:top;height:62px;color:#f3f3f3}}
+.mcal td.blank{{background:transparent}}
+.mcal .n{{font-weight:700;font-size:15px}} .mcal .s{{font-size:11px;opacity:.85;overflow:hidden;white-space:nowrap}}
+</style><table class="mcal"><tr>{head}</tr>{rows}</table>"""
+
+
+def year_heatmap(rows):
+    """Months x areas heatmap of the monthly area scores."""
+    areas = [k for k in rows[0] if k != "label"]
+    z = [[r[a] for r in rows] for a in areas]
+    fig = px.imshow(z, x=[r["label"] for r in rows], y=areas, zmin=-3, zmax=3, aspect="auto",
+                    color_continuous_scale=[[0, "#9c3a33"], [0.35, "#a8642a"], [0.5, "#5c5a3a"], [0.65, "#4f9d69"],
+                                            [1, "#2E9E5B"]], title="<b>12-month outlook by area</b>")
+    fig.update_traces(hovertemplate="%{y}, %{x}: %{z:+.1f}<extra></extra>")
+    fig.update_layout(height=380, margin=dict(l=10, r=10, t=60, b=10), coloraxis_colorbar_title="Outlook")
+    return fig

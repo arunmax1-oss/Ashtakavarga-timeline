@@ -3,6 +3,7 @@
 All calculations live in the `vedic/` package; this file only gathers input and lays out results.
 """
 import base64
+import calendar
 import datetime as dt
 import json
 import zoneinfo
@@ -15,6 +16,7 @@ from vedic import compare as cmp
 from vedic import career
 from vedic import insights as ins
 from vedic import journal as jr
+from vedic import monthly
 from vedic import muhurta as mh
 from vedic import narratives as nar
 from vedic import remedies as rem
@@ -27,8 +29,8 @@ from vedic.dasha import active_periods, dasha_balance, periods_in_window, sub_pe
 from vedic.dasha_alt import chara_dasha, running, yogini_dasha
 from vedic.sensitivity import dasha_shift_per_minute, sensitivity, warning
 from vedic.vargas import VARGAS, varga_positions
-from vedic.plots import (bav_heatmap, sav_figure, shadbala_figure, strength_figure, timeline_figure, to_local,
-                         week_figure)
+from vedic.plots import (bav_heatmap, month_calendar_html, sav_figure, shadbala_figure, strength_figure,
+                         timeline_figure, to_local, week_figure, year_heatmap)
 from vedic.report import build_report
 from vedic.shadbala import COMPONENT_LABELS, shadbala
 from vedic.transits import saturn_timeline, transit_segments, utc_now
@@ -61,6 +63,16 @@ def cached_transits(chart, av, planet, start, end):
 @st.cache_data(show_spinner=False)
 def cached_week(chart, av, schedule, week_start, tz, sb, place):
     return week_forecast(chart, av, schedule, week_start, tz, sb, place)
+
+
+@st.cache_data(show_spinner=False)
+def cached_month(chart, av, schedule, sb, year, month, tz, place):
+    return monthly.month_forecast(chart, av, schedule, sb, year, month, tz, place)
+
+
+@st.cache_data(show_spinner=False)
+def cached_year(chart, av, schedule, sb, year, month, tz):
+    return monthly.year_overview(chart, av, schedule, sb, year, month, 12, tz)
 
 
 @st.cache_data(show_spinner=False)
@@ -263,10 +275,10 @@ if sens_warning:
 
 remedies = rem.build_remedies(chart, av, (md_now, ad_now), now, sb)
 
-(tab_summary, tab_week, tab_planner, tab_job, tab_planets, tab_dasha, tab_av, tab_timing, tab_bhrigu, tab_strength,
- tab_remedies, tab_journal) = st.tabs(
-    ["📜 Summary", "🗓 This Week", "📅 Planner", "💼 Job", "🪐 Planets", "⏳ Dasha", "📊 Ashtakavarga", "🎯 Timing",
-     "🔱 Bhrigu", "⚡ Strength", "🪔 Remedies", "📓 Journal"])
+(tab_summary, tab_week, tab_month, tab_planner, tab_job, tab_planets, tab_dasha, tab_av, tab_timing, tab_bhrigu,
+ tab_strength, tab_remedies, tab_journal) = st.tabs(
+    ["📜 Summary", "🗓 This Week", "📆 Month", "📅 Planner", "💼 Job", "🪐 Planets", "⏳ Dasha", "📊 Ashtakavarga",
+     "🎯 Timing", "🔱 Bhrigu", "⚡ Strength", "🪔 Remedies", "📓 Journal"])
 
 # --------------------------------------------------------------------------------------
 # Summary
@@ -391,6 +403,69 @@ with tab_week:
     )
     st.download_button("📥 Download this week (HTML)", week_report,
                        file_name=f"weekly_forecast_{week_start:%Y_%m_%d}.html", mime="text/html")
+
+# --------------------------------------------------------------------------------------
+# Monthly forecast
+# --------------------------------------------------------------------------------------
+with tab_month:
+    st.markdown("> 💡 A **calendar-month forecast** for each area of life. Every area is tied to its houses and "
+                "significators: the month's transits through those houses (judged by Ashtakavarga points), Jupiter's "
+                "protective and Saturn's or Mars's testing aspects, your running Dasha lords, and Sade Sati all feed "
+                "its rating. Key dates, eclipses and a day-by-day calendar follow.")
+    today = dt.date.today()
+    options = []
+    y_, m_ = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+    for _ in range(14):
+        options.append((y_, m_))
+        y_, m_ = (y_, m_ + 1) if m_ < 12 else (y_ + 1, 1)
+    default_idx = 2 if today.day >= 25 else 1  # near month end, default to next month
+    sel_y, sel_m = st.selectbox("Month", options, index=default_idx, key="month_pick",
+                                format_func=lambda ym: f"{calendar.month_name[ym[1]]} {ym[0]}")
+    m_tz, m_place = st.session_state.get("week_ctx", (tz_name, (lat, lon)))
+    mf = cached_month(chart, av, schedule, sb, sel_y, sel_m, m_tz, m_place)
+
+    st.subheader(f"🧭 {calendar.month_name[sel_m]} {sel_y} at a glance")
+    for line in mf["summary"]:
+        st.markdown(f"- {line}")
+
+    st.subheader("Areas of life")
+    for row_start in range(0, len(mf["areas"]), 2):
+        cols = st.columns(2)
+        for col, a in zip(cols, mf["areas"][row_start:row_start + 2]):
+            with col.container(border=True):
+                st.markdown(f"#### {a['icon']} {a['area']} · {a['rating_icon']} {a['rating']}")
+                st.markdown(a["text"])
+
+    st.subheader("📌 Key dates")
+    if mf["events"]:
+        for e in mf["events"]:
+            st.markdown(f"- **{e['when']:%a %d %b, %H:%M}:** {e['text']}")
+    else:
+        st.caption("No major planetary events this month.")
+
+    st.subheader("🗓 Day by day")
+    st.markdown(month_calendar_html(mf["days"]), unsafe_allow_html=True)
+    st.caption("Colours show each day's personal rating (Tara Bala, Chandra Bala, the Moon's Ashtakavarga points, "
+               "tithi and weekday lord). ⚠ = Chandrashtama. Hover a day for details; the This Week tab explains them.")
+
+    st.subheader("📈 12-month outlook")
+    yr = cached_year(chart, av, schedule, sb, today.year, today.month, m_tz)
+    st.plotly_chart(year_heatmap(yr), width="stretch")
+    st.caption("Green months favour the area, red months call for care. Use it to plan big moves in each area.")
+
+    month_report = build_report(
+        title=f"{calendar.month_name[sel_m]} {sel_y} Forecast{' — ' + user_name if user_name else ''}",
+        subtitle=f"Born {fmt_date(dob)} {tob.strftime('%H:%M')} · {address}",
+        metrics=[(a["area"], a["rating"]) for a in mf["areas"]],
+        sections=[("This month", "\n".join(f"- {x}" for x in mf["summary"]))]
+        + [(f"{a['icon']} {a['area']}: {a['rating']}", a["text"]) for a in mf["areas"]]
+        + [("Key dates", "\n".join(f"- {e['when']:%a %d %b %H:%M}: {e['text']}" for e in mf["events"]) or "- None")],
+        figures=[year_heatmap(yr)],
+    )
+    st.download_button("📥 Download this month (HTML)", month_report,
+                       file_name=f"forecast_{sel_y}_{sel_m:02d}.html", mime="text/html")
+    st.caption("Monthly readings combine classical Jyotish rules for reflection and planning; they are not "
+               "certainties. Health notes are not medical advice.")
 
 # --------------------------------------------------------------------------------------
 # Planner (muhurta)
