@@ -150,7 +150,8 @@ st.session_state["ctx"] = {
 }
 
 page = st.navigation({
-    "Overview": [st.Page("app_pages/summary.py", title="Summary", icon="📜", default=True)],
+    "Overview": [st.Page("app_pages/summary.py", title="Summary", icon="📜", default=True),
+                 st.Page("app_pages/ask.py", title="Ask", icon="💬")],
     "Forecasts": [st.Page("app_pages/week.py", title="This Week", icon="🗓"),
                   st.Page("app_pages/month.py", title="Month", icon="📆"),
                   st.Page("app_pages/planner.py", title="Planner", icon="📅")],

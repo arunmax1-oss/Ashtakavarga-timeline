@@ -52,10 +52,10 @@ class _Busy(Exception):
     """This model can't answer right now (overloaded, rate-limited or unknown): try the next one."""
 
 
-def _call(model, key, prompt):
+def _call(model, key, system, contents):
     resp = requests.post(URL.format(model=model), headers={"x-goog-api-key": key}, timeout=150, json={
-        "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": role, "parts": [{"text": text}]} for role, text in contents],
         "generationConfig": {"temperature": 0.7},
     })
     if resp.status_code in BUSY:
@@ -70,15 +70,15 @@ def _call(model, key, prompt):
 
 
 @st.cache_data(ttl=7 * 86400, show_spinner=False)
-def _generate(models, key, prompt):
-    """(model used, text). Busy models are retried with a short wait, then the next model is tried.
+def _generate(models, key, system, contents):
+    """(model used, text) for a conversation: `contents` is a tuple of (role, text), role "user" or "model". Busy models are retried with a short wait, then the next model is tried.
     Failures are not cached, so a later click tries again."""
     seen = []
     for model in models:
         for wait in RETRY_WAITS:
             time.sleep(wait)
             try:
-                return model, _call(model, key, prompt)
+                return model, _call(model, key, system, contents)
             except _Busy as exc:
                 seen.append(exc.args[0])
                 if exc.args[0] in (404, 429):  # unknown model or its quota used up: retrying won't help
@@ -103,6 +103,28 @@ def _explain(resp):
     return f"Gemini error {resp.status_code}: {msg}"
 
 
+SETUP_HELP = ("Add a free Google Gemini API key to use this: get a key at **aistudio.google.com/apikey**, then in "
+              "Streamlit open **Manage app → ⋮ → Settings → Secrets** and paste `GEMINI_API_KEY = \"your-key\"`.")
+
+
+def settings():
+    """(key, models to try) from Secrets, or (None, None) if no key is set."""
+    key = clean_key(_secret("GEMINI_API_KEY"))
+    if not key:
+        return None, None
+    model = clean_key(_secret("GEMINI_MODEL")) or DEFAULT_MODEL
+    return key, tuple(dict.fromkeys([model] + FALLBACK_MODELS))
+
+
+def converse(system, contents):
+    """(model used, text) or raises RuntimeError with a plain-English message."""
+    key, models = settings()
+    try:
+        return _generate(models, key, system, tuple(contents))
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError(network_message(exc)) from exc
+
+
 def reading_section(topic, facts):
     """Draw the 'Personalised reading' section for `topic` from a list of fact lines (markdown is fine)."""
     st.subheader("✍️ Personalised reading (Google Gemini)")
@@ -119,7 +141,7 @@ def reading_section(topic, facts):
     if st.button(f"Write my {topic.lower()} reading", key=f"btn_{topic}", type="primary"):
         with st.spinner("Gemini is writing your reading…"):
             try:
-                st.session_state[state] = (prompt, *_generate(models, key, prompt))
+                st.session_state[state] = (prompt, *_generate(models, key, INSTRUCTIONS, (("user", prompt),)))
             except RuntimeError as exc:
                 st.error(str(exc))
             except (requests.RequestException, ValueError) as exc:
