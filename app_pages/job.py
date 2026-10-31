@@ -1,4 +1,5 @@
 """Job page."""
+from ui.ai import reading_section
 from ui.common import cached_muhurta, career, chart_svg, ctx, dt, fmt_date, fmt_span, ordinal, pd, st, varga_positions
 
 c = ctx()
@@ -81,3 +82,15 @@ if jbest:
         "Why": "; ".join(d["muhurta_reasons"]) or "Personal day rating",
     } for d in jbest[:6]]), width="stretch", hide_index=True)
 st.caption("Career readings are classical guidance for reflection and planning, not certainties.")
+
+st.divider()
+reading_section("Career", [
+    f"Today is {dt.date.today():%d %b %Y}",
+    f"Lagna {chart['planets']['Ascendant']['sign']}; Moon sign {chart['planets']['Moon']['sign']}",
+    *career.profile_text(chart, prof), f"Job or business: {prof['leaning']}",
+    *(f"Suitable fields via {f['planet']}: {', '.join(f['fields'])}" for f in prof["fields"]),
+    *(f"Dasha period {p_['md']}-{p_['ad']} {fmt_date(p_['start'])} to {fmt_date(p_['end'])}: {p_['theme']} "
+      f"({p_['meaning']}), quality {p_['quality']}" for p_ in periods_c[:8]),
+    *(f"Transit: {t['planet']} in {t['sign']} {fmt_date(t['start'])} to {fmt_date(t['end'])}: {t['what']}"
+      for t in ct[:8]),
+])

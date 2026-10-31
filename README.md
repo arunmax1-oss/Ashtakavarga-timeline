@@ -20,6 +20,14 @@ Bala, Ashtakavarga Shodhana and Shodhya Pinda, Arudha Padas, Argala, Bhava Chali
 
 To keep it private, set the app's sharing to "Only specific people" in the Streamlit app settings.
 
+## Personalised readings (Google Gemini, optional)
+
+1. Get a free API key at <https://aistudio.google.com/apikey>.
+2. In Streamlit Cloud: **Manage app → ⋮ → Settings → Secrets**, add `GEMINI_API_KEY = "your-key"` and save.
+   Optionally add `GEMINI_MODEL = "gemini-2.5-flash"` (or any current model) to override the default `gemini-flash-latest`.
+3. Each life-area page and the Job page then shows **✍️ Write my … reading** at the bottom.
+   Only calculated chart facts are sent (no name, birth date, time or place); the page shows exactly what is sent.
+
 ## Run locally
 
 ```bash
@@ -38,6 +46,7 @@ the GitHub **tests** check must stay green.
 |---|---|
 | `streamlit_app.py` | Entry point: sidebar inputs, saved people, header metrics, page navigation |
 | `ui/common.py` | Cached calculations and helpers shared by every page (`ctx()` gives a page the current chart) |
+| `ui/ai.py` | Optional Gemini write-ups (key from Streamlit secrets) |
 | `ui/life_area.py` | Draws every life-area page (Health, Wealth, ...) from `vedic/lifeareas.py` |
 | `app_pages/*.py` | One file per page (Summary, This Week, Month, Planner, Job, Health, Wealth, Houses, ...) |
 | `vedic/constants.py` | Signs, lords, dignities, nakshatras, dasha years, house meanings, colours |

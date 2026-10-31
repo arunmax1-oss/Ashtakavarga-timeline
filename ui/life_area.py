@@ -1,6 +1,8 @@
 """Draws one life-area page (Health, Wealth, Relationships...). Each app_pages/<area>.py calls render(key)."""
 import plotly.graph_objects as go
 
+from ui.ai import reading_section
+
 from ui.common import (cached_area, cached_year, chart_svg, ctx, dt, fmt_date, la, ordinal, pd, SIGNS, st,
                        today_utc, VARGAS, varga_positions)
 
@@ -15,6 +17,30 @@ def _year_chart(rows, area):
     fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), yaxis_title="Month score",
                       xaxis=dict(categoryorder="array", categoryarray=labels))
     return fig
+
+
+def facts(c, key, data):
+    """Plain fact lines for the AI write-up: no name, birth date, time or place."""
+    P = c.chart["planets"]
+    out = [f"Today is {dt.date.today():%d %b %Y}",
+           f"Lagna {P['Ascendant']['sign']}; Moon sign {P['Moon']['sign']} ({P['Moon']['nakshatra']} nakshatra)",
+           f"Running Vimshottari period: {c.md_now['lord']} Mahadasha, {c.ad_now['lord']} Antardasha until "
+           f"{fmt_date(c.ad_now['end'])}" if c.md_now and c.ad_now else "Running period unknown"]
+    out += la.summary_lines(c.chart, key, data["promise"])
+    if key == "Home & Family":
+        out += [f"{r['Area']}: {r['Rating']} ({r['Score']}/100). Helps: {r['Helps']}. Watch: {r['Watch']}"
+                for r in data["extras"]]
+    else:
+        out += data["extras"]
+    for group, fs in data["promise"]["groups"].items():
+        out.append(f"{group}: " + "; ".join(f"{'+' if f['points'] > 0 else '-' if f['points'] < 0 else '='} "
+                                            f"{f['text']}" for f in fs))
+    out += [f"Dasha period {p['md']}-{p['ad']} {fmt_date(p['start'])} to {fmt_date(p['end'])}: {p['strength']} link, "
+            f"{p['tone']} ({p['roles']})" for p in data["periods"][:8]]
+    out += [f"Transit: {t['planet']} in {t['sign']} {fmt_date(t['start'])} to {fmt_date(t['end'])}, {t['what']}"
+            for t in data["transits"][:8]]
+    out += [f"Double-transit window: {fmt_date(a)} to {fmt_date(b)}" for a, b in data["double"]]
+    return out
 
 
 def render(key):
@@ -105,3 +131,5 @@ def render(key):
     st.caption(f"Monthly '{spec['monthly']}' score from the Month page (above 0.8 good, below −0.8 challenging). "
                "Open the Month page for the details of any month.")
     st.caption("Readings are classical Parashari guidance for reflection and planning, not certainties.")
+    st.divider()
+    reading_section(key, facts(c, key, data))

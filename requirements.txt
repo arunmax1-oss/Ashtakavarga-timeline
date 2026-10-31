@@ -7,3 +7,4 @@ pyswisseph==2.10.3.2
 geopy==2.5.0
 timezonefinder==9.0.0
 markdown==3.11.2
+requests==2.34.2
