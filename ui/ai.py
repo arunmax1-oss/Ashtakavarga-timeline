@@ -3,10 +3,16 @@
 The key is read from Streamlit secrets (GEMINI_API_KEY); without it the section explains how to add one.
 Only calculated chart facts are sent: no name, birth date, birth time or place.
 """
+import time
+
 import requests
 import streamlit as st
 
 DEFAULT_MODEL = "gemini-flash-latest"
+# Tried in order when the chosen model is busy; names Google doesn't recognise are skipped.
+FALLBACK_MODELS = ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+BUSY = {404, 429, 500, 502, 503, 504}
+RETRY_WAITS = (0, 4)  # seconds before each attempt on one model
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 INSTRUCTIONS = (
     "You are an experienced Vedic astrologer of the Parashari school writing for a client. Using ONLY the chart "
@@ -42,20 +48,49 @@ def network_message(exc):
     return f"Couldn't get a reading from Gemini ({type(exc).__name__}: {str(exc)[:200]})."
 
 
-@st.cache_data(ttl=7 * 86400, show_spinner=False)
-def _generate(model, key, prompt):
+class _Busy(Exception):
+    """This model can't answer right now (overloaded, rate-limited or unknown): try the next one."""
+
+
+def _call(model, key, prompt):
     resp = requests.post(URL.format(model=model), headers={"x-goog-api-key": key}, timeout=150, json={
         "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.7},
     })
+    if resp.status_code in BUSY:
+        raise _Busy(resp.status_code)
     if resp.status_code != 200:
         raise RuntimeError(_explain(resp))
     parts = resp.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
     text = "".join(p.get("text", "") for p in parts).strip()
     if not text:
-        raise RuntimeError("Gemini returned an empty answer. Try again in a minute.")
+        raise _Busy("empty")
     return text
+
+
+@st.cache_data(ttl=7 * 86400, show_spinner=False)
+def _generate(models, key, prompt):
+    """(model used, text). Busy models are retried with a short wait, then the next model is tried.
+    Failures are not cached, so a later click tries again."""
+    seen = []
+    for model in models:
+        for wait in RETRY_WAITS:
+            time.sleep(wait)
+            try:
+                return model, _call(model, key, prompt)
+            except _Busy as exc:
+                seen.append(exc.args[0])
+                if exc.args[0] in (404, 429):  # unknown model or its quota used up: retrying won't help
+                    break
+    if seen and all(code == 404 for code in seen):
+        raise RuntimeError("Google doesn't recognise any of the model names. Set GEMINI_MODEL in Secrets to a current "
+                           "model listed at ai.google.dev/gemini-api/docs/models.")
+    if seen and all(code == 429 for code in seen if code != 404):
+        raise RuntimeError("Gemini's free-tier limit is used up on every model for now. Wait a minute, or until "
+                           "tomorrow for the daily limit.")
+    raise RuntimeError("Gemini is overloaded right now (all models tried). This is on Google's side and usually "
+                       "passes within minutes; please try again shortly.")
 
 
 def _explain(resp):
@@ -65,10 +100,6 @@ def _explain(resp):
         msg = resp.text[:200]
     if resp.status_code in (400, 401, 403) and "key" in msg.lower():
         return "Gemini rejected the API key. Check GEMINI_API_KEY in the app's Secrets."
-    if resp.status_code == 429:
-        return "Gemini's free-tier limit was reached. Wait a minute (or until tomorrow for the daily limit)."
-    if resp.status_code == 404:
-        return f"The model isn't available ({msg}). Set GEMINI_MODEL in Secrets to a current model name."
     return f"Gemini error {resp.status_code}: {msg}"
 
 
@@ -82,12 +113,13 @@ def reading_section(topic, facts):
                 "and paste `GEMINI_API_KEY = \"your-key\"`. Save, and this button appears.")
         return
     model = clean_key(_secret("GEMINI_MODEL")) or DEFAULT_MODEL
+    models = tuple(dict.fromkeys([model] + FALLBACK_MODELS))
     prompt = f"Topic: {topic}\n\nChart facts:\n" + "\n".join(f"- {f}" for f in facts)
     state = f"ai_{topic}"
     if st.button(f"Write my {topic.lower()} reading", key=f"btn_{topic}", type="primary"):
         with st.spinner("Gemini is writing your reading…"):
             try:
-                st.session_state[state] = (prompt, _generate(model, key, prompt))
+                st.session_state[state] = (prompt, *_generate(models, key, prompt))
             except RuntimeError as exc:
                 st.error(str(exc))
             except (requests.RequestException, ValueError) as exc:
@@ -95,10 +127,11 @@ def reading_section(topic, facts):
     saved = st.session_state.get(state)
     if saved and saved[0] == prompt:  # hide a reading made for a different chart
         with st.container(border=True):
-            st.markdown(saved[1])
-        st.download_button("Download reading", saved[1], file_name=f"{topic.lower().replace(' ', '_')}_reading.md",
+            st.markdown(saved[2])
+            st.caption(f"Written by {saved[1]}.")
+        st.download_button("Download reading", saved[2], file_name=f"{topic.lower().replace(' ', '_')}_reading.md",
                            key=f"dl_{topic}")
     with st.expander("What is sent to Gemini"):
-        st.caption(f"Model: {model}. Only these calculated facts are sent; no name, birth date, time or place. "
+        st.caption(f"Model: {model}, with {', '.join(FALLBACK_MODELS)} as backups when it is busy. Only these calculated facts are sent; no name, birth date, time or place. "
                    "On Google's free tier, prompts may be used to improve Google's products.")
         st.code(prompt, language=None)
