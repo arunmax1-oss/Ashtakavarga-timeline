@@ -1,17 +1,14 @@
 """Vedic Astrology & Ashtakavarga Engine: entry point.
 
-This file draws the sidebar (birth details and saved people), computes the chart once per run, shows
+This file draws the sidebar (birth details), computes the chart once per run, shows
 the header, and hands over to the selected page in app_pages/. Only the selected page is computed.
 All calculations live in vedic/; shared helpers and cached functions in ui/common.py.
 """
-import base64
 import datetime as dt
-import json
 import zoneinfo
 
 import streamlit as st
 
-from ui import secure
 from ui.common import cached_geocode, cached_sensitivity, compute_core, fmt_date
 from vedic import narratives as nar
 from vedic import remedies as rem
@@ -25,7 +22,7 @@ st.set_page_config(page_title="Vedic Astrology & Ashtakavarga Engine", page_icon
 
 
 # --------------------------------------------------------------------------------------
-# Saved profiles: kept in the page link (?p=...) so a bookmark reopens them
+# Sidebar field memory
 # --------------------------------------------------------------------------------------
 PROFILE_KEYS = {"name": "k_name", "dob": "k_dob", "tob": "k_tob", "place": "k_place", "manual": "k_manual",
                 "lat": "k_lat", "lon": "k_lon", "tz": "k_tz"}
@@ -33,36 +30,8 @@ DEFAULT_PROFILE = {"name": "", "dob": dt.date(1985, 6, 15), "tob": dt.time(14, 3
                    "manual": False, "lat": 12.9716, "lon": 77.5946, "tz": "Asia/Kolkata"}
 
 
-def encode_profiles(profiles, passphrase):
-    raw = [{**p, "dob": p["dob"].isoformat(), "tob": p["tob"].strftime("%H:%M")} for p in profiles]
-    return secure.encrypt(json.dumps(raw, separators=(",", ":")), passphrase)
-
-
-def _parse_profiles(text):
-    raw = json.loads(text)
-    return [{**DEFAULT_PROFILE, **p, "dob": dt.date.fromisoformat(p["dob"]),
-             "tob": dt.datetime.strptime(p["tob"], "%H:%M").time()} for p in raw]
-
-
-def decode_legacy(blob):
-    """Links saved before encryption was added: plain base64 JSON."""
-    try:
-        return _parse_profiles(base64.urlsafe_b64decode(blob.encode()).decode())
-    except Exception:
-        return []
-
-
-def write_link():
-    """Store the saved people in the page link, encrypted, or drop the link if there are none."""
-    if st.session_state["profiles"]:
-        st.query_params["p"] = encode_profiles(st.session_state["profiles"], st.session_state["_pass"])
-    else:
-        st.query_params.pop("p", None)
-
-
 def load_profile(profile):
-    """Show `profile` in the sidebar. Bumping the version gives every field a fresh key, so each one is
-    redrawn with the profile's value (Streamlit ignores a new default for a widget it already knows)."""
+    """Start the sidebar fields from `profile`. Bumping the version gives every field a fresh key."""
     st.session_state["_prof"] = dict(profile)
     st.session_state["_ver"] = st.session_state.get("_ver", 0) + 1
 
@@ -78,58 +47,15 @@ def remember(name, value):
     return value
 
 
-def on_pick_profile():
-    choice = st.session_state["profile_pick"]
-    if choice == "➕ New person":
-        load_profile(DEFAULT_PROFILE)
-    else:
-        load_profile(next(p for p in st.session_state["profiles"] if p["name"] == choice))
-
-
-def current_profile():
-    return dict(st.session_state["_prof"])
-
-
-if "profiles" not in st.session_state:
-    blob = st.query_params.get("p", "")
-    st.session_state["_locked"] = secure.is_encrypted(blob)
-    st.session_state["profiles"] = [] if st.session_state["_locked"] else decode_legacy(blob)
-    st.session_state["_legacy"] = bool(st.session_state["profiles"])
-    first = st.session_state["profiles"][0] if st.session_state["profiles"] else DEFAULT_PROFILE
-    load_profile(first)
-    if st.session_state["profiles"]:
-        st.session_state["profile_pick"] = first["name"]
+if "_prof" not in st.session_state:
+    load_profile(DEFAULT_PROFILE)
 
 
 # --------------------------------------------------------------------------------------
 # Sidebar: birth details
 # --------------------------------------------------------------------------------------
 st.sidebar.header("👤 Birth Details")
-if st.session_state["_locked"]:
-    with st.sidebar.container(border=True):
-        st.markdown("🔒 **Saved people are locked**")
-        unlock = st.text_input("Passphrase", type="password", key="unlock_pass")
-        if st.button("Unlock", width="stretch") and unlock:
-            try:
-                people = _parse_profiles(secure.decrypt(st.query_params.get("p", ""), unlock))
-            except ValueError:
-                st.error("That passphrase doesn't open this link.")
-            else:
-                st.session_state.update(profiles=people, _locked=False, _pass=unlock, _legacy=False)
-                load_profile(people[0])
-                st.session_state["pending_pick"] = people[0]["name"]
-                st.rerun()
-elif st.session_state.get("_legacy"):
-    st.sidebar.warning("Your saved people are in an **unencrypted** link. Open 💾 below, set a passphrase and "
-                       "save once to protect them.")
-
-names = [p["name"] for p in st.session_state["profiles"]]
-if "pending_pick" in st.session_state:  # set by Save/Remove on the previous run
-    pick = st.session_state.pop("pending_pick")
-    st.session_state["profile_pick"] = pick if pick in names else "➕ New person"
-if names:
-    st.sidebar.selectbox("Saved people", names + ["➕ New person"], key="profile_pick", on_change=on_pick_profile)
-user_name = remember("name", st.sidebar.text_input("Name", placeholder="Needed to save a profile", **field("name")))
+user_name = remember("name", st.sidebar.text_input("Name", placeholder="Optional", **field("name")))
 dob = remember("dob", st.sidebar.date_input("Date of Birth", min_value=dt.date(1900, 1, 1), max_value=dt.date.today(),
                                             format="DD/MM/YYYY", **field("dob")))
 tob = remember("tob", st.sidebar.time_input("Time of Birth (24h, local)", step=60, **field("tob")))
@@ -160,7 +86,8 @@ else:
 with st.sidebar.expander("⚙ Calculation settings"):
     ayanamsha = st.selectbox("Ayanamsha", AYANAMSHAS, index=0)
     true_node = st.radio("Rahu/Ketu", ["Mean node", "True node"], horizontal=True) == "True node"
-    st.caption("Houses: whole sign (Rasi = Bhava). Ephemeris: Swiss Ephemeris (Moshier).")
+    st.caption("Houses: whole sign (Rasi = Bhava); Sripati Bhava Chalit is on the Houses page. "
+                   "Ephemeris: Swiss Ephemeris (Moshier).")
 
 with st.sidebar.expander("📍 Where you are now"):
     here = st.text_input("Current city", key="here_place_input", placeholder="Leave blank to use the birth place",
@@ -179,36 +106,6 @@ here_place = (here_loc["lat"], here_loc["lon"]) if here_loc else (lat, lon)
 
 st.sidebar.caption(f"📍 {address}")
 st.sidebar.caption(f"🌐 {lat:.2f}°, {lon:.2f}° · {tz_name} (UTC{chart['utc_offset']:+.2f} at birth)")
-
-with st.sidebar.expander("💾 Save or remove this person"):
-    st.caption("Saved people are kept in the page link, **encrypted with your passphrase**. After saving, "
-               "**bookmark the page**; you'll enter the passphrase when you reopen it.")
-    if st.session_state["_locked"]:
-        st.info("Unlock your saved people first, so saving doesn't replace them.")
-    elif not st.session_state.get("_pass"):
-        new_pass = st.text_input(f"Choose a passphrase ({secure.MIN_LENGTH}+ characters)", type="password",
-                                 key="new_pass")
-        if new_pass and len(new_pass) < secure.MIN_LENGTH:
-            st.caption(f"Use at least {secure.MIN_LENGTH} characters.")
-        elif new_pass:
-            st.session_state["_pass"] = new_pass
-    ready = bool(st.session_state.get("_pass")) and not st.session_state["_locked"]
-    s1, s2 = st.columns(2)
-    if s1.button("Save", width="stretch", disabled=not (ready and user_name.strip())):
-        prof = current_profile()
-        if not manual:
-            prof.update(lat=lat, lon=lon, tz=tz_name)
-        others = [p for p in st.session_state["profiles"] if p["name"] != prof["name"]]
-        st.session_state["profiles"] = others + [prof]
-        st.session_state["_legacy"] = False
-        write_link()
-        st.session_state["pending_pick"] = prof["name"]
-        st.rerun()
-    if s2.button("Remove", width="stretch", disabled=not ready or user_name not in names):
-        st.session_state["profiles"] = [p for p in st.session_state["profiles"] if p["name"] != user_name]
-        write_link()
-        st.session_state["pending_pick"] = "➕ New person"
-        st.rerun()
 
 # --------------------------------------------------------------------------------------
 # Header
@@ -258,11 +155,20 @@ page = st.navigation({
                   st.Page("app_pages/month.py", title="Month", icon="📆"),
                   st.Page("app_pages/planner.py", title="Planner", icon="📅")],
     "Life areas": [st.Page("app_pages/job.py", title="Job", icon="💼"),
+                   st.Page("app_pages/health.py", title="Health", icon="🩺"),
+                   st.Page("app_pages/wealth.py", title="Wealth", icon="💰"),
+                   st.Page("app_pages/relationships.py", title="Relationships", icon="💞"),
+                   st.Page("app_pages/children.py", title="Children", icon="👶"),
+                   st.Page("app_pages/education.py", title="Education", icon="🎓"),
+                   st.Page("app_pages/home_family.py", title="Home & Family", icon="🏠"),
+                   st.Page("app_pages/travel.py", title="Travel & Foreign", icon="✈️"),
+                   st.Page("app_pages/spirituality.py", title="Spirituality", icon="🕉"),
                    st.Page("app_pages/remedies.py", title="Remedies", icon="🪔")],
     "Chart & timing": [st.Page("app_pages/planets.py", title="Planets", icon="🪐"),
                        st.Page("app_pages/dasha.py", title="Dasha", icon="⏳"),
                        st.Page("app_pages/ashtakavarga.py", title="Ashtakavarga", icon="📊"),
                        st.Page("app_pages/strength.py", title="Strength", icon="⚡"),
+                       st.Page("app_pages/houses.py", title="Houses", icon="🏛"),
                        st.Page("app_pages/timing.py", title="Timing", icon="🎯"),
                        st.Page("app_pages/bhrigu.py", title="Bhrigu", icon="🔱")],
     "Tools": [st.Page("app_pages/journal.py", title="Journal", icon="📓")],

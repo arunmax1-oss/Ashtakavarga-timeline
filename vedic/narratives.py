@@ -318,6 +318,19 @@ GLOSSARY = {
                                     "work that fulfils you.",
     "D10 (Dasamsa)": "The career divisional chart: each sign split into 10 parts. Strong planets here support "
                      "professional success.",
+    "Shodashavarga": "The 16 divisional charts of Parashara (D1 to D60), each a finer split of the signs that "
+                     "zooms in on one area of life.",
+    "Vimshopaka Bala": "A planet's strength out of 20 from its dignity across the divisional charts.",
+    "Shodhana / Shodhya Pinda": "Classical reductions of a planet's Ashtakavarga, and the weighted total of the reduced "
+                                "points used for longevity and sensitive-transit calculations.",
+    "Arudha Pada": "The 'image' of a house: how its matters appear to the world. The Arudha Lagna (AL) is your public "
+                   "image; the Upapada (UL) describes marriage.",
+    "Argala": "Planetary intervention: planets in the 2nd, 4th and 11th from a house influence it; the 12th, 10th "
+              "and 3rd obstruct them.",
+    "Bhava Chalit": "Unequal houses measured from the exact Ascendant degree; a planet near a sign edge can deliver "
+                    "the matters of the neighbouring house.",
+    "Double transit": "Jupiter and Saturn both influencing a house (or its lord) at the same time: the classic window "
+                      "for that house's events to happen, if the Dasha supports them.",
     "Eclipse (Grahan)": "Solar and lunar eclipses are traditionally avoided for new starts; the house they fall in "
                         "can see turning points over the following months.",
     "Ayanamsha": "The correction that converts Western (tropical) positions into Indian (sidereal) ones. "

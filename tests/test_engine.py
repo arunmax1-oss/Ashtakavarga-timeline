@@ -291,12 +291,63 @@ def test_monthly_forecast():
     assert len(yr) == 12 and yr[0]["label"] == "Nov 2026"
 
 
-def test_profile_encryption():
-    import pytest
-    from ui import secure
-    blob = secure.encrypt('[{"name":"Arun","dob":"1985-06-15"}]', "jyotish2026")
-    assert secure.is_encrypted(blob) and "Arun" not in blob
-    assert secure.decrypt(blob, "jyotish2026").startswith('[{"name":"Arun"')
-    with pytest.raises(ValueError):
-        secure.decrypt(blob, "wrong-passphrase")
-    assert secure.encrypt("same", "pw123456") != secure.encrypt("same", "pw123456")  # random salt each time
+
+def test_shodashavarga_and_vimshopaka():
+    from vedic.vargas import VARGAS, varga_positions
+    from vedic.vimshopaka import SCHEMES, vimshopaka
+    assert len(VARGAS) == 16
+    assert all(sum(w.values()) == 20 for w in SCHEMES.values())
+    # 15°15' Aries: D60 part 30 counted from Aries -> Libra; D16 part 8 from Aries -> Sagittarius
+    lon = 15.25
+    assert VARGAS["D60"][1](lon) == 6 and VARGAS["D16"][1](lon) == 8
+    assert VARGAS["D27"][1](30.0) == 3  # Taurus (earth) starts from Cancer
+    assert set(varga_positions(CHART, "D45")) == set(CHART["planets"])
+    vb = vimshopaka(CHART)
+    assert all(5 <= v["scores"]["Shodashavarga (16)"] <= 20 for v in vb.values())
+
+
+def test_ashtakavarga_shodhana():
+    from vedic.ashtakavarga import ekadhipatya_shodhana, sensitive_nakshatras, shodhana, trikona_shodhana
+    assert trikona_shodhana([4, 3, 5, 4, 3, 6, 3, 3, 3, 5, 4, 5]) == [1, 0, 2, 1, 0, 3, 0, 0, 0, 2, 1, 2]
+    assert trikona_shodhana([2] * 12) == [0] * 12
+    # Gemini (occupied, 2) vs Virgo (empty, 3): Virgo drops to 2; Capricorn (occupied, 2) vs Aquarius (1): Aquarius -> 0
+    row = [1, 0, 2, 1, 0, 3, 0, 0, 0, 2, 1, 2]
+    assert ekadhipatya_shodhana(row, {0, 2, 6, 9}) == [1, 0, 2, 1, 0, 2, 0, 0, 0, 2, 0, 2]
+    av = compute_ashtakavarga(CHART)
+    red = shodhana(CHART, av)
+    assert red["Sun"]["shodhya_pinda"] == red["Sun"]["rasi_pinda"] + red["Sun"]["graha_pinda"] > 0
+    sens = sensitive_nakshatras(CHART, av, red)
+    assert all(len(set(d["nakshatras"])) == 3 for d in sens.values())
+
+
+def test_houses_techniques():
+    from vedic import houses
+    padas = houses.arudha_padas(CHART)
+    assert [d["short"] for d in padas][0] == "AL" and padas[11]["short"] == "UL"
+    for d in padas:  # never the house itself or its 7th
+        sign = (CHART["asc_sign_idx"] + d["house"] - 1) % 12
+        assert d["sign_idx"] not in (sign, (sign + 6) % 12)
+    assert houses.arudha_insight(CHART, padas)
+    assert set(houses.argala_summary(CHART)) == set(range(1, 13))
+    bc = houses.bhava_chalit(CHART)
+    assert abs((bc["madhya"][0] - CHART["planets"]["Ascendant"]["lon"] + 180) % 360 - 180) < 1e-6
+    # a planet's Bhava is never more than one house away from its whole-sign house
+    for n, b in bc["planets"].items():
+        assert (b - CHART["planets"][n]["house"]) % 12 in (0, 1, 11)
+
+
+def test_life_areas():
+    from vedic import lifeareas as la
+    from vedic.shadbala import shadbala
+    av, sb, sched = compute_ashtakavarga(CHART), shadbala(CHART), vimshottari(CHART)
+    start = dt.datetime(2026, 11, 1)
+    for key in la.AREAS:
+        prom = la.promise(CHART, av, sb, key)
+        assert prom["label"] in ("Strong", "Good", "Mixed", "Needs care") and 0 <= prom["index"] <= 100
+        assert la.summary_lines(CHART, key, prom) and la.EXTRAS[key](CHART, av, sb)
+        periods = la.area_periods(CHART, sched, sb, key, start)
+        assert periods and all(p["start"] < p["end"] for p in periods)
+    tr = la.area_transits(CHART, "Relationships", start)
+    assert all(t["planet"] in ("Jupiter", "Saturn", "Rahu") for t in tr)
+    for a, b in la.double_transit(CHART, 7, start):
+        assert a < b

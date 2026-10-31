@@ -1,5 +1,7 @@
 """Ashtakavarga page."""
-from ui.common import bav_heatmap, ctx, HOUSE_INFO, ins, nar, pd, sav_figure, sign_table, SIGNS, st
+from ui.common import (bav_heatmap, cached_saturn_nakshatras, CLASSICAL, ctx, fmt_date, HOUSE_INFO, ins, nar,
+                       NAKSHATRAS, ordinal, pd, sav_figure, sensitive_nakshatras, shodhana, sign_table, SIGNS, st,
+                       today_utc)
 
 c = ctx()
 chart = c.chart
@@ -39,3 +41,33 @@ st.caption("How to read: each row is one planet's own scorecard (Bhinna Ashtakav
            "is weak. The Timing page uses these numbers.")
 with st.expander("BAV / SAV table by sign"):
     st.dataframe(pd.DataFrame(sign_table(av)), width="stretch", hide_index=True)
+
+st.subheader("✂️ Reduced Ashtakavarga (Shodhana) and Shodhya Pinda")
+st.markdown("Classical predictions use each planet's Ashtakavarga **after two reductions**: *Trikona Shodhana* "
+            "(the smallest count in each trine of signs is removed) and *Ekadhipatya Shodhana* (the two signs "
+            "of one lord are balanced, depending on which hold planets). The reduced points, multiplied by fixed "
+            "sign and planet factors, give the **Shodhya Pinda**.")
+red = shodhana(chart, av)
+st.dataframe(pd.DataFrame([{"Planet": pl, "Rasi Pinda": red[pl]["rasi_pinda"], "Graha Pinda": red[pl]["graha_pinda"],
+                            "Shodhya Pinda": red[pl]["shodhya_pinda"]} for pl in CLASSICAL]),
+             width="stretch", hide_index=True)
+red_pick = st.selectbox("Show the reduction steps for", CLASSICAL, key="shodhana_pick")
+st.dataframe(pd.DataFrame([{
+    "Sign": SIGNS[s_], "House": (s_ - chart["asc_sign_idx"]) % 12 + 1, "BAV": av["bav"][red_pick][s_],
+    "After Trikona": red[red_pick]["trikona"][s_], "After Ekadhipatya": red[red_pick]["ekadhipatya"][s_],
+} for s_ in range(12)]), width="stretch", hide_index=True)
+
+st.markdown("**Sensitive nakshatras (BPHS):** Shodhya Pinda × the points in a key house from the planet, divided by "
+            "27, gives a nakshatra. When **Saturn** transits it or its two trines, the matters of that house need care.")
+sens = sensitive_nakshatras(chart, av, red)
+sat = cached_saturn_nakshatras(chart, today_utc())
+rows_ = []
+for pl, d in sens.items():
+    hits = [(a, b) for n_, a, b in sat if n_ in d["nakshatras"]]
+    rows_.append({"Planet": pl, "Matters": f"{d['meaning']} ({ordinal(d['house'])} from {pl})",
+                  "Nakshatras": ", ".join(NAKSHATRAS[n_] for n_ in d["nakshatras"]),
+                  "Saturn transits them (next 12 years)": "; ".join(f"{fmt_date(a)} – {fmt_date(b)}"
+                                                                    for a, b in hits[:3]) or "not in this period"})
+st.dataframe(pd.DataFrame(rows_), width="stretch", hide_index=True)
+st.caption("These are classical sensitive points for caution and care, not predictions of events on their own; "
+           "read them with the running Dasha.")

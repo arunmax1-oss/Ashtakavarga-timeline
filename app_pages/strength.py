@@ -1,5 +1,5 @@
 """Strength page."""
-from ui.common import (COMPONENT_LABELS, ctx, dignity_strength, ins, jd_to_datetime, pd, shadbala_figure, st,
+from ui.common import (COMPONENT_LABELS, ctx, vim, dignity_strength, ins, jd_to_datetime, pd, shadbala_figure, st,
                         strength_figure, to_local)
 
 c = ctx()
@@ -58,6 +58,23 @@ with st.expander("How Shadbala is calculated here"):
         "Classical sources differ on a few conventions (year/month lord reckoning, sunrise definition, Mercury's "
         "nature), so totals can differ slightly from other software. The conventions used are listed at the top "
         "of `vedic/shadbala.py`.")
+
+st.subheader("🧩 Vimshopaka Bala (strength across the divisional charts)")
+st.markdown("Vimshopaka Bala scores each planet out of **20** by its dignity in every divisional chart (own or "
+            "exaltation sign 20, great friend 18, friend 15, neutral 10, enemy 7, great enemy 5), weighted by how "
+            "important each chart is. Shadbala measures raw power; Vimshopaka shows whether that power is "
+            "**consistently supported** across life areas. 15+ is excellent, 10–15 good, 5–10 ordinary.")
+vb = vim.vimshopaka(chart)
+for line in vim.insight(vb):
+    st.markdown(f"- {line}")
+st.dataframe(pd.DataFrame([{"Planet": p, **vb[p]["scores"], "Rating (16 charts)": vim.label(
+    vb[p]["scores"]["Shodashavarga (16)"]), "Own/exalted in Dashavarga": vb[p]["own_count"], "Title": vb[p]["title"]
+    or "—"} for p in vb]), width="stretch", hide_index=True)
+with st.expander("Dignity in each divisional chart"):
+    st.dataframe(pd.DataFrame([{"Planet": p, **{v: f"{s_} ({g})" for v, (s_, g) in vb[p]["dignities"].items()}}
+                               for p in vb]), width="stretch", hide_index=True)
+    st.caption("Friendship is compound (natural + temporary from the birth chart). Exaltation is scored like an "
+               "own sign. D60 and other fine charts change every few minutes of birth time.")
 
 st.divider()
 st.subheader("Quick indicator: dignity, direction, combustion and aspects")

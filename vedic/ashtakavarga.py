@@ -115,3 +115,78 @@ def sign_table(av):
         row["SAV"] = av["sav"][s]
         rows.append(row)
     return rows
+
+
+# --------------------------------------------------------------------------------------
+# Reductions (Shodhana) and Shodhya Pinda (BPHS ch. 67-69)
+# --------------------------------------------------------------------------------------
+RASI_MULTIPLIERS = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12]  # Aries..Pisces
+GRAHA_MULTIPLIERS = {"Sun": 5, "Moon": 5, "Mars": 8, "Mercury": 5, "Jupiter": 10, "Venus": 7, "Saturn": 5}
+DUAL_LORDSHIP = [(0, 7), (1, 6), (2, 5), (8, 11), (9, 10)]  # Mars, Venus, Mercury, Jupiter, Saturn signs
+# House counted from each planet whose bindus give its sensitive nakshatra, and what that house signifies.
+PINDA_HOUSE = {"Sun": (9, "father"), "Moon": (4, "mother"), "Mars": (3, "siblings and courage"),
+               "Mercury": (4, "relatives and friends"), "Jupiter": (5, "children"), "Venus": (7, "spouse"),
+               "Saturn": (8, "health and longevity")}
+
+
+def trikona_shodhana(row):
+    """Trine reduction: in each trine (e.g. Aries-Leo-Sagittarius) subtract the smallest count from all three;
+    if all three are equal they all become 0; if any is already 0 nothing changes."""
+    out = list(row)
+    for s in range(4):
+        trine = [s, s + 4, s + 8]
+        vals = [out[t] for t in trine]
+        if 0 in vals:
+            continue
+        low = 0 if len(set(vals)) == 1 else min(vals)
+        for t in trine:
+            out[t] = 0 if low == 0 else out[t] - low
+    return out
+
+
+def ekadhipatya_shodhana(row, occupied):
+    """Reduction between the two signs of one lord (Cancer and Leo are skipped). `occupied` is the set of sign
+    indices holding a planet.
+    - Either sign has 0, or both are occupied: no change.
+    - Neither occupied: equal counts both become 0, otherwise the larger becomes the smaller.
+    - One occupied: if it has more or equal points, the empty sign becomes 0; if fewer, the empty sign is
+      reduced to the occupied sign's count."""
+    out = list(row)
+    for a, b in DUAL_LORDSHIP:
+        va, vb = out[a], out[b]
+        if 0 in (va, vb) or (a in occupied and b in occupied):
+            continue
+        if a not in occupied and b not in occupied:
+            out[a] = out[b] = 0 if va == vb else min(va, vb)
+            continue
+        occ, empty = (a, b) if a in occupied else (b, a)
+        out[empty] = 0 if out[occ] >= out[empty] else out[occ]
+    return out
+
+
+def shodhana(chart, av):
+    """{planet: {"trikona": [12], "ekadhipatya": [12], "rasi_pinda", "graha_pinda", "shodhya_pinda"}}."""
+    p = chart["planets"]
+    occupied = {p[n]["sign_idx"] for n in CLASSICAL_PLANETS}
+    out = {}
+    for planet in CLASSICAL_PLANETS:
+        tri = trikona_shodhana(av["bav"][planet])
+        eka = ekadhipatya_shodhana(tri, occupied)
+        rasi = sum(eka[s] * RASI_MULTIPLIERS[s] for s in range(12))
+        graha = sum(eka[p[g]["sign_idx"]] * GRAHA_MULTIPLIERS[g] for g in CLASSICAL_PLANETS)
+        out[planet] = {"trikona": tri, "ekadhipatya": eka, "rasi_pinda": rasi, "graha_pinda": graha,
+                       "shodhya_pinda": rasi + graha}
+    return out
+
+
+def sensitive_nakshatras(chart, av, reduced):
+    """BPHS: Shodhya Pinda x bindus (original BAV) in a key house from the planet, divided by 27; the remainder
+    counted from Ashwini gives a nakshatra. Saturn transiting it, or its trines (+9, +18), troubles what
+    that house signifies. Returns {planet: {"house", "meaning", "nakshatras": [3 indices 0-26]}}."""
+    out = {}
+    for planet, (house, meaning) in PINDA_HOUSE.items():
+        sign = (chart["planets"][planet]["sign_idx"] + house - 1) % 12
+        rem = (reduced[planet]["shodhya_pinda"] * av["bav"][planet][sign]) % 27
+        first = (rem - 1) % 27  # remainder 1 = Ashwini, 0 = Revati
+        out[planet] = {"house": house, "meaning": meaning, "nakshatras": [first, (first + 9) % 27, (first + 18) % 27]}
+    return out

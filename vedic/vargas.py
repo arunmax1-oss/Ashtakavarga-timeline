@@ -1,4 +1,8 @@
-"""Divisional charts (vargas). Each function maps a sidereal longitude to a sign index (0 = Aries)."""
+"""Divisional charts (vargas): the full Parashari Shodashavarga (16 charts).
+
+Each function maps a sidereal longitude to a sign index (0 = Aries). Sign index parity: an even index
+(Aries, Gemini...) is an odd sign. Index % 3 gives movable (0), fixed (1) and dual (2) signs.
+"""
 from .chart import dashamsha_sign, navamsha_sign
 
 
@@ -42,6 +46,49 @@ def trimsamsa(lon):
     return next(sign for limit, sign in parts if d < limit)
 
 
+def _by_modality(lon, parts, starts):
+    """Equal parts counted from a start sign that depends on whether the sign is movable, fixed or dual."""
+    s = int(lon // 30)
+    return (starts[s % 3] + int((lon % 30) // (30 / parts))) % 12
+
+
+def shodashamsa(lon):
+    """D16: movable signs from Aries, fixed from Leo, dual from Sagittarius."""
+    return _by_modality(lon, 16, (0, 4, 8))
+
+
+def vimshamsa(lon):
+    """D20: movable signs from Aries, fixed from Sagittarius, dual from Leo."""
+    return _by_modality(lon, 20, (0, 8, 4))
+
+
+def chaturvimshamsa(lon):
+    """D24: odd signs from Leo, even signs from Cancer."""
+    s = int(lon // 30)
+    return ((4 if s % 2 == 0 else 3) + int((lon % 30) // 1.25)) % 12
+
+
+def bhamsa(lon):
+    """D27: fire signs from Aries, earth from Cancer, air from Libra, water from Capricorn."""
+    return (int(lon // 30) * 27 + int((lon % 30) // (30 / 27))) % 12
+
+
+def khavedamsa(lon):
+    """D40: odd signs from Aries, even signs from Libra."""
+    s = int(lon // 30)
+    return ((0 if s % 2 == 0 else 6) + int((lon % 30) // 0.75)) % 12
+
+
+def akshavedamsa(lon):
+    """D45: movable signs from Aries, fixed from Leo, dual from Sagittarius."""
+    return _by_modality(lon, 45, (0, 4, 8))
+
+
+def shashtiamsa(lon):
+    """D60: counted from the sign itself."""
+    return (int(lon // 30) + int((lon % 30) // 0.5)) % 12
+
+
 VARGAS = {
     "D1": ("Rasi: the birth chart", rasi),
     "D2": ("Hora: wealth", hora),
@@ -51,7 +98,14 @@ VARGAS = {
     "D9": ("Navamsa: marriage and inner strength", navamsha_sign),
     "D10": ("Dasamsa: career", dashamsha_sign),
     "D12": ("Dwadasamsa: parents", dwadasamsa),
+    "D16": ("Shodashamsa: vehicles, comforts and happiness", shodashamsa),
+    "D20": ("Vimshamsa: spiritual life and worship", vimshamsa),
+    "D24": ("Chaturvimshamsa: education and learning", chaturvimshamsa),
+    "D27": ("Bhamsa: strengths and weaknesses", bhamsa),
     "D30": ("Trimsamsa: health and misfortunes", trimsamsa),
+    "D40": ("Khavedamsa: maternal legacy, auspicious and inauspicious effects", khavedamsa),
+    "D45": ("Akshavedamsa: paternal legacy and character", akshavedamsa),
+    "D60": ("Shashtiamsa: past karma; the finest division (needs an exact birth time)", shashtiamsa),
 }
 
 

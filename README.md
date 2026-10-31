@@ -4,7 +4,9 @@ A personal Streamlit app: sidereal birth chart, Nakshatras, D9/D10, Jaimini kara
 Vimshottari Dasha (to Pratyantardasha), classical Ashtakavarga (BAV/SAV), full Shadbala, a transit
 timing engine that scores real Kakshya windows, Bhrigu techniques, remedies, a weekly forecast with daily
 timings, an activity planner, South/North Indian charts and divisional charts, birth-time sensitivity,
-Yogini and Chara Dasha, monthly forecasts by life area, a career (Job) analysis, a prediction journal and saved profiles.
+Yogini and Chara Dasha, monthly forecasts by life area, a page per life area (Job, Health, Wealth, Relationships,
+Children, Education, Home & Family, Travel & Foreign, Spirituality), all 16 Parashari divisional charts with Vimshopaka
+Bala, Ashtakavarga Shodhana and Shodhya Pinda, Arudha Padas, Argala, Bhava Chalit and a prediction journal.
 
 ## Deploy on Streamlit Community Cloud
 
@@ -17,10 +19,6 @@ Yogini and Chara Dasha, monthly forecasts by life area, a career (Job) analysis,
 4. Under **Advanced settings**, choose Python **3.12**, then **Deploy**.
 
 To keep it private, set the app's sharing to "Only specific people" in the Streamlit app settings.
-
-**Saved people** are stored in the page link, encrypted with a passphrase you choose (PBKDF2 + Fernet).
-Bookmark the link after saving; when you reopen it, enter the passphrase in the sidebar to unlock.
-The passphrase is never stored, so a forgotten passphrase means re-entering the people.
 
 ## Run locally
 
@@ -40,11 +38,11 @@ the GitHub **tests** check must stay green.
 |---|---|
 | `streamlit_app.py` | Entry point: sidebar inputs, saved people, header metrics, page navigation |
 | `ui/common.py` | Cached calculations and helpers shared by every page (`ctx()` gives a page the current chart) |
-| `ui/secure.py` | Passphrase encryption of the saved-people link |
-| `app_pages/*.py` | One file per page (Summary, This Week, Month, Planner, Job, Remedies, Planets, Dasha, ...) |
+| `ui/life_area.py` | Draws every life-area page (Health, Wealth, ...) from `vedic/lifeareas.py` |
+| `app_pages/*.py` | One file per page (Summary, This Week, Month, Planner, Job, Health, Wealth, Houses, ...) |
 | `vedic/constants.py` | Signs, lords, dignities, nakshatras, dasha years, house meanings, colours |
 | `vedic/chart.py` | Place lookup, DST-aware UTC conversion, Swiss Ephemeris positions, D9/D10, karakas |
-| `vedic/ashtakavarga.py` | Parashari BAV/SAV tables and Kakshya lords |
+| `vedic/ashtakavarga.py` | Parashari BAV/SAV tables, Kakshya lords, Shodhana reductions and Shodhya Pinda |
 | `vedic/dasha.py` | Vimshottari Mahadasha → Antardasha → Pratyantardasha |
 | `vedic/transits.py` | Splits real transits into Kakshya windows and rates them |
 | `vedic/yogas.py` | Yoga detection and the dignity strength score |
@@ -52,7 +50,10 @@ the GitHub **tests** check must stay green.
 | `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each page |
 | `vedic/weekly.py` | Weekly forecast: daily Panchang, Tara/Chandra Bala day ratings, the week's events |
 | `vedic/bhrigu.py` | Bhrigu Bindu, Bhrigu Chakra Paddhati and Bhrigu Nandi Nadi transit contacts |
-| `vedic/vargas.py` | Divisional charts D1, D2, D3, D4, D7, D9, D10, D12, D30 |
+| `vedic/vargas.py` | All 16 Parashari divisional charts (D1 to D60) |
+| `vedic/vimshopaka.py` | Vimshopaka Bala: strength out of 20 across the divisional charts |
+| `vedic/houses.py` | Arudha Padas, Argala and Bhava Chalit (Sripati) houses |
+| `vedic/lifeareas.py` | Life-area readings: promise factors, Dasha periods, transits, double transit, classical checks |
 | `vedic/chartviz.py` | South and North Indian chart drawings (SVG) |
 | `vedic/sensitivity.py` | Birth-time sensitivity: minutes until the Lagna, D9 Lagna, Moon sign or nakshatra change |
 | `vedic/muhurta.py` | Activity planner: best days for an activity in the coming weeks |
@@ -66,7 +67,7 @@ the GitHub **tests** check must stay green.
 | `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
 | `vedic/plots.py` | Plotly charts |
 | `vedic/report.py` | Downloadable HTML report |
-| `tests/test_engine.py` | Sanity checks (SAV = 337, BAV totals, dasha order, transit continuity, encryption) |
+| `tests/test_engine.py` | Sanity checks (SAV = 337, BAV totals, dasha order, transit continuity, Parashari techniques, life areas) |
 | `tests/smoke_pages.py` | Opens every page in a headless Streamlit and fails on any error |
 | `.github/workflows/tests.yml` | Runs pyflakes, pytest and the page smoke test on every push |
 
@@ -83,5 +84,6 @@ for any assistant to edit without losing earlier work.
 - **Interpretive rules:** weekly day ratings (Tara Bala, Chandra Bala, Moon Ashtakavarga, tithi, weekday lord)
   and all written readings follow classical rules but are guidance, not certainties.
 - **Simplified:** the *quick indicator* on the Planet Strength tab and *Dhana Yoga* use simple rules.
-  Houses and aspects (for remedies and planet stories) are whole-sign.
+  Houses and aspects (for remedies and planet stories) are whole-sign; Sripati Bhava Chalit is shown on the Houses page.
+- **Life-area ratings** add up classical factors (+1 / 0 / −1 each); every factor is listed on the page.
 - Interpretations are for reflection only.

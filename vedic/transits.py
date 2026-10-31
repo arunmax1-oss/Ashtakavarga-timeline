@@ -129,3 +129,28 @@ def saturn_timeline(chart, start, end):
             else:
                 cycles.append({"start": p["start"], "end": p["end"]})
     return periods, cycles
+
+
+def segments_by(chart, planet, start, end, key, step_days=2.0):
+    """Split `planet`'s path between naive-UTC start and end into runs where key(longitude) stays the same.
+    Returns [(value, start datetime, end datetime)]; boundaries are found to within an hour."""
+    set_ayanamsha(chart["ayanamsha"])
+    jd, jd_end = julian_day(start), julian_day(end)
+
+    def val(j):
+        return key(planet_longitude(j, planet, chart["true_node"])[0])
+
+    out, cur, seg_start, j = [], val(jd), jd, jd
+    while j < jd_end:
+        nxt = min(j + step_days, jd_end)
+        v = val(nxt)
+        if v != cur:
+            lo, hi = j, nxt
+            while hi - lo > 1 / 24:
+                mid = (lo + hi) / 2
+                lo, hi = (mid, hi) if val(mid) == cur else (lo, mid)
+            out.append((cur, seg_start, hi))
+            cur, seg_start = val(hi), hi
+        j = nxt
+    out.append((cur, seg_start, jd_end))
+    return [(v, jd_to_datetime(a), jd_to_datetime(b)) for v, a, b in out]
