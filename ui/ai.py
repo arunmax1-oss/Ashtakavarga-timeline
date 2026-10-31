@@ -25,9 +25,26 @@ def _secret(name, default=None):
         return default
 
 
+def clean_key(raw):
+    """The key as pasted, minus stray spaces, line breaks and quotes that would break the request."""
+    return str(raw or "").strip().strip("\"'“”‘’").strip()
+
+
+def network_message(exc):
+    """Plain-English reason for a failed request."""
+    if isinstance(exc, requests.Timeout):
+        return "Gemini took too long to answer. Try again; if it keeps happening, set GEMINI_MODEL to a faster model."
+    if isinstance(exc, requests.exceptions.InvalidHeader):
+        return ("The API key contains a space, line break or other stray character. In Secrets, retype it as "
+                "GEMINI_API_KEY = \"AIza...\" on one line with plain straight quotes.")
+    if isinstance(exc, requests.ConnectionError):
+        return "Couldn't connect to Gemini (network problem). Try again in a minute."
+    return f"Couldn't get a reading from Gemini ({type(exc).__name__}: {str(exc)[:200]})."
+
+
 @st.cache_data(ttl=7 * 86400, show_spinner=False)
 def _generate(model, key, prompt):
-    resp = requests.post(URL.format(model=model), headers={"x-goog-api-key": key}, timeout=90, json={
+    resp = requests.post(URL.format(model=model), headers={"x-goog-api-key": key}, timeout=150, json={
         "systemInstruction": {"parts": [{"text": INSTRUCTIONS}]},
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.7},
@@ -58,21 +75,23 @@ def _explain(resp):
 def reading_section(topic, facts):
     """Draw the 'Personalised reading' section for `topic` from a list of fact lines (markdown is fine)."""
     st.subheader("✍️ Personalised reading (Google Gemini)")
-    key = _secret("GEMINI_API_KEY")
+    key = clean_key(_secret("GEMINI_API_KEY"))
     if not key:
         st.info("Add a free Google Gemini API key to get a written reading of this page: get a key at "
                 "**aistudio.google.com/apikey**, then in Streamlit open **Manage app → ⋮ → Settings → Secrets** "
                 "and paste `GEMINI_API_KEY = \"your-key\"`. Save, and this button appears.")
         return
-    model = _secret("GEMINI_MODEL", DEFAULT_MODEL)
+    model = clean_key(_secret("GEMINI_MODEL")) or DEFAULT_MODEL
     prompt = f"Topic: {topic}\n\nChart facts:\n" + "\n".join(f"- {f}" for f in facts)
     state = f"ai_{topic}"
     if st.button(f"Write my {topic.lower()} reading", key=f"btn_{topic}", type="primary"):
         with st.spinner("Gemini is writing your reading…"):
             try:
                 st.session_state[state] = (prompt, _generate(model, key, prompt))
-            except (RuntimeError, requests.RequestException) as exc:
-                st.error(str(exc) if isinstance(exc, RuntimeError) else "Couldn't reach Gemini. Try again shortly.")
+            except RuntimeError as exc:
+                st.error(str(exc))
+            except (requests.RequestException, ValueError) as exc:
+                st.error(network_message(exc))
     saved = st.session_state.get(state)
     if saved and saved[0] == prompt:  # hide a reading made for a different chart
         with st.container(border=True):
