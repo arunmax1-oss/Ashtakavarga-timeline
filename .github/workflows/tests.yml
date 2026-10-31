@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pyflakes
+      - name: Lint
+        run: pyflakes streamlit_app.py ui app_pages vedic tests
+      - name: Calculation tests
+        run: pytest -q
+      - name: Every page renders without errors
+        run: python tests/smoke_pages.py

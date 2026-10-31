@@ -289,3 +289,14 @@ def test_monthly_forecast():
     assert any("Solar eclipse" in e["text"] and e["when"].day == 17 for e in feb["events"])  # 17 Feb 2026
     yr = monthly.year_overview(CHART, av, sched, sb, 2026, 11, 12, "Asia/Kolkata")
     assert len(yr) == 12 and yr[0]["label"] == "Nov 2026"
+
+
+def test_profile_encryption():
+    import pytest
+    from ui import secure
+    blob = secure.encrypt('[{"name":"Arun","dob":"1985-06-15"}]', "jyotish2026")
+    assert secure.is_encrypted(blob) and "Arun" not in blob
+    assert secure.decrypt(blob, "jyotish2026").startswith('[{"name":"Arun"')
+    with pytest.raises(ValueError):
+        secure.decrypt(blob, "wrong-passphrase")
+    assert secure.encrypt("same", "pw123456") != secure.encrypt("same", "pw123456")  # random salt each time

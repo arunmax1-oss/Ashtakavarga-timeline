@@ -1,4 +1,4 @@
-"""Chart-specific explanations ("What this means for you") for each tab.
+"""Chart-specific explanations ("What this means for you") for each page.
 
 Every function takes already-computed data and returns Markdown. No Streamlit here.
 """

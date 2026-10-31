@@ -156,7 +156,7 @@ def house_strength_label(points):
 
 
 # --------------------------------------------------------------------------------------
-# Reference text used by vedic/insights.py to explain each tab in context
+# Reference text used by vedic/insights.py to explain each page in context
 # --------------------------------------------------------------------------------------
 PLANET_SIGNIFIES = {
     "Sun": "authority, self-confidence, father, vitality and dealings with government or seniors",

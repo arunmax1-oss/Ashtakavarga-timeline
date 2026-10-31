@@ -347,7 +347,7 @@ def week_forecast(chart, av, schedule, week_start, tz_name, sb=None, place=None)
         weak = [x["lord"] for x in (md, ad, pd) if x and x["lord"] in sb and sb[x["lord"]]["ratio"] < 1]
         if weak:
             summary.append(f"**Note:** {', '.join(weak)} (running period lord) is below its required Shadbala, so its "
-                           "results this week need extra effort; see the Remedies tab.")
+                           "results this week need extra effort; see the Remedies page.")
 
     return {"days": days, "events": events, "climate": climate, "strong": strong, "bb_hits": bb_hits,
             "bcp": bcp, "summary": [s for s in summary if s], "periods": (md, ad, pd), "average": avg}

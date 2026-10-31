@@ -18,19 +18,30 @@ Yogini and Chara Dasha, monthly forecasts by life area, a career (Job) analysis,
 
 To keep it private, set the app's sharing to "Only specific people" in the Streamlit app settings.
 
+**Saved people** are stored in the page link, encrypted with a passphrase you choose (PBKDF2 + Fernet).
+Bookmark the link after saving; when you reopen it, enter the passphrase in the sidebar to unlock.
+The passphrase is never stored, so a forgotten passphrase means re-entering the people.
+
 ## Run locally
 
 ```bash
 pip install -r requirements.txt
 streamlit run streamlit_app.py
 pip install pytest && pytest   # optional: checks the calculations
+python tests/smoke_pages.py    # optional: opens every page and reports errors
 ```
+
+`requirements.txt` pins exact versions. To upgrade, change a version, run the tests, and push;
+the GitHub **tests** check must stay green.
 
 ## Project map
 
 | File | What it does |
 |---|---|
-| `streamlit_app.py` | UI only: sidebar inputs, tabs, tables, download button |
+| `streamlit_app.py` | Entry point: sidebar inputs, saved people, header metrics, page navigation |
+| `ui/common.py` | Cached calculations and helpers shared by every page (`ctx()` gives a page the current chart) |
+| `ui/secure.py` | Passphrase encryption of the saved-people link |
+| `app_pages/*.py` | One file per page (Summary, This Week, Month, Planner, Job, Remedies, Planets, Dasha, ...) |
 | `vedic/constants.py` | Signs, lords, dignities, nakshatras, dasha years, house meanings, colours |
 | `vedic/chart.py` | Place lookup, DST-aware UTC conversion, Swiss Ephemeris positions, D9/D10, karakas |
 | `vedic/ashtakavarga.py` | Parashari BAV/SAV tables and Kakshya lords |
@@ -38,7 +49,7 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/transits.py` | Splits real transits into Kakshya windows and rates them |
 | `vedic/yogas.py` | Yoga detection and the dignity strength score |
 | `vedic/narratives.py` | All interpretation text (edit wording here) |
-| `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each tab |
+| `vedic/insights.py` | Builds the chart-specific "What this means for you" explanations on each page |
 | `vedic/weekly.py` | Weekly forecast: daily Panchang, Tara/Chandra Bala day ratings, the week's events |
 | `vedic/bhrigu.py` | Bhrigu Bindu, Bhrigu Chakra Paddhati and Bhrigu Nandi Nadi transit contacts |
 | `vedic/vargas.py` | Divisional charts D1, D2, D3, D4, D7, D9, D10, D12, D30 |
@@ -55,7 +66,9 @@ pip install pytest && pytest   # optional: checks the calculations
 | `vedic/remedies.py` | Remedies tab: which planets are flagged, why, and the three remedy tiers |
 | `vedic/plots.py` | Plotly charts |
 | `vedic/report.py` | Downloadable HTML report |
-| `tests/test_engine.py` | Sanity checks (SAV = 337, BAV totals, dasha order, transit continuity) |
+| `tests/test_engine.py` | Sanity checks (SAV = 337, BAV totals, dasha order, transit continuity, encryption) |
+| `tests/smoke_pages.py` | Opens every page in a headless Streamlit and fails on any error |
+| `.github/workflows/tests.yml` | Runs pyflakes, pytest and the page smoke test on every push |
 
 **Tip when asking an AI to change the app:** paste this table plus only the file(s) involved,
 e.g. "change the career wording in `vedic/narratives.py`". Small, targeted files are much easier
