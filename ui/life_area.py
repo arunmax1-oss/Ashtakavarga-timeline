@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 
 from ui.ai import reading_section
 
-from ui.common import (cached_area, cached_year, chart_svg, ctx, dt, fmt_date, la, ordinal, pd, SIGNS, st,
+from ui.common import (cached_area, cached_year, chart_svg, ctx, dt, fmt_date, la, ordinal, pd, rplan, SIGNS, st,
                        today_utc, VARGAS, varga_positions)
 
 ICON = {1: "✅", 0: "▫️", -1: "⚠️"}
@@ -93,6 +93,13 @@ def render(key):
             st.markdown(f"The divisional chart for this area. Its {ordinal(vh)} house and that house's lord are "
                         "read alongside the birth chart: a well-placed lord here confirms the birth-chart promise, "
                         "a weak one asks for more effort. Divisional charts depend on an accurate birth time.")
+
+    focus = rplan.area_focus(chart, c.remedies, key)
+    if focus:
+        st.subheader("🪔 Remedy focus for this area")
+        for f in focus:
+            st.markdown(f"- **{f['planet']}** ({f['approach'].lower()}, severity {f['score']}) {f['why']}.")
+        st.page_link("app_pages/remedies.py", label="Open the Remedies page for what to do and when", icon="🪔")
 
     st.subheader("📈 When: Dasha periods for this area (next 15 years)")
     st.caption("Antardashas whose lord (or Mahadasha lord) rules, occupies or signifies this area. 'Strong' = both "

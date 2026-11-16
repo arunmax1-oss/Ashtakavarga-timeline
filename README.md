@@ -75,6 +75,7 @@ the GitHub **tests** check must stay green.
 | `vedic/shadbala.py` | Full six-fold Shadbala (BPHS) for the seven classical planets |
 | `vedic/aspects.py` | Combustion and planetary aspects (graha drishti) |
 | `vedic/remedies.py` | Remedies page: which planets are flagged, why, and the remedy tiers (strengthen or pacify) |
+| `vedic/remedy_plan.py` | Remedy calendar (weekday, hora, personal day rating), life-area links, gemstone plan |
 | `vedic/remedy_eval.py` | Functional roles per Lagna, ten doshas with cancellations, severity score, upcoming triggers |
 | `vedic/plots.py` | Plotly charts |
 | `vedic/report.py` | Downloadable HTML report |

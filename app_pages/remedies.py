@@ -1,5 +1,6 @@
 """Remedies page."""
-from ui.common import cached_remedy_triggers, ctx, fmt_date, nar, ordinal, pd, rem, st, today_utc
+from ui.common import (cached_remedy_triggers, cached_start_days, ctx, dt, fmt_date, fmt_span, nar, ordinal, pd, rem,
+                       rplan, st, today_utc)
 
 c = ctx()
 chart = c.chart
@@ -60,6 +61,11 @@ def section(heading, key, intro, empty):
         with st.expander(f"{e['planet']} · {e['priority']} priority · severity {e['score']} · {e['approach']} · "
                          f"{e['day']}"):
             st.markdown(rem.entry_markdown(e))
+            links = rplan.life_links(chart, e["planet"])
+            st.markdown(f"**Life areas it touches:** {links['text']} Most relevant pages: "
+                        f"{', '.join(links['areas'][:4]) or '—'}.")
+            st.markdown("**Fuller guidance**\n\n| Practice | Guidance |\n|---|---|\n" + "\n".join(
+                f"| {k} | {v} |" for k, v in rplan.guidance_rows(e["planet"], e["approach"], e["gem"])))
 
 
 section("⏱ Do now", "now",
@@ -79,6 +85,49 @@ if triggers:
     } for t in triggers]), width="stretch", hide_index=True)
 else:
     st.success("No major trigger periods in the next three years.")
+
+st.subheader("🗓 When to start")
+flagged = list(dict.fromkeys(e["planet"] for e in remedies["now"] + remedies["lifelong"]))
+if flagged:
+    st.caption("A remedy is traditionally begun on the planet's own weekday, in its planetary hour (hora), on a day "
+               "that is good for you personally, and outside Rahu Kalam. Strengthening remedies prefer the waxing "
+               "Moon. Times are for where you are now (set in the sidebar).")
+    when_pick = st.selectbox("Planet", flagged, key="start_pick",
+                             format_func=lambda p: f"{p} ({roles[p]['approach'].lower()})")
+    days = cached_start_days(chart, c.av, c.schedule, when_pick, roles[when_pick]["approach"], dt.date.today(),
+                             c.here_tz, c.here_place)
+    if days:
+        best = days[0]
+        hora = f", in its hora {fmt_span(best['horas'][0])}" if best["horas"] else ""
+        st.success(f"**Best start in the next six weeks:** {best['date']:%A %d %b %Y}{hora}"
+                   + (f" (avoid Rahu Kalam {fmt_span(best['rahu_kalam'])})" if best["rahu_kalam"] else "") + ".")
+        st.dataframe(pd.DataFrame([{
+            "Date": f"{d['date']:%a %d %b %Y}", "Your day": d["rating"], "Tithi": d["tithi"],
+            "Nakshatra": d["nakshatra"], "Planet's hours": ", ".join(fmt_span(h) for h in d["horas"]) or "—",
+            "Avoid (Rahu Kalam)": fmt_span(d["rahu_kalam"]) if d["rahu_kalam"] else "—",
+            "Notes": "; ".join(d["notes"]) or "—",
+        } for d in sorted(days, key=lambda d: d["date"])]), width="stretch", hide_index=True)
+        if when_pick in ("Rahu", "Ketu"):
+            st.caption(f"{when_pick} has no hora of its own; {'Saturn' if when_pick == 'Rahu' else 'Mars'}'s hora "
+                       "is used, as is customary.")
+else:
+    st.caption("No planet is flagged, so there is nothing to schedule.")
+
+st.subheader("💎 Gemstone plan")
+plan = rplan.gem_plan(chart, remedies)
+st.caption("At most two stones, only for planets to strengthen that need it (severity 15+), your Lagna lord "
+           "first, and never two stones whose planets are natural enemies (e.g. ruby with blue sapphire).")
+if plan["wear"]:
+    for g in plan["wear"]:
+        d = g["details"]
+        st.markdown(f"- ✅ **{g['stone']}** for {g['planet']}: {g['reason']}. Commonly {d['carats']} carats in "
+                    f"{d['metal']}, on the {d['finger']}, first worn {d['start']}. Substitutes: {d['substitutes']}.")
+else:
+    st.markdown("- No gemstone is recommended for your chart right now: the practical and devotional remedies are "
+                "enough.")
+for g in plan["skip"]:
+    st.markdown(f"- ▫️ {g['stone']} ({g['planet']}): {g['reason']}.")
+st.caption(nar.GEM_CAUTION)
 
 section("🌱 Lifelong", "lifelong",
         "Planets weak or afflicted in the birth chart itself (severity 10 or more). These do not expire; small, "

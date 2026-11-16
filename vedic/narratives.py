@@ -371,3 +371,64 @@ REMEDY_DISCLAIMER = ("Remedies are traditional practices offered for reflection.
                      "Start with the practical step: it costs nothing and carries no risk.")
 GEM_CAUTION = ("Gemstones strengthen a planet for better or worse, are costly, and are easy to get wrong. "
                "Treat this as a question to take to an astrologer you trust, not as an instruction.")
+
+
+# --------------------------------------------------------------------------------------
+# Fuller remedy guidance per planet (traditional; sources differ on counts and details)
+# --------------------------------------------------------------------------------------
+REMEDY_DETAILS = {
+    "Sun": {"beej": "Om Hraam Hreem Hraum Sah Suryaya Namah", "japa": 7000, "stotra": "Aditya Hridayam",
+            "rudraksha": "1 or 12 mukhi", "colours": "red, orange, saffron", "fast": "Sunday (one meal, no salt)",
+            "donate": "wheat, jaggery, copper, red cloth", "conduct": "respect your father and those in authority; "
+            "rise early and greet the Sun",
+            "gem": {"stone": "Ruby", "carats": "3-5", "metal": "gold or copper", "finger": "ring finger",
+                    "start": "Sunday morning, within an hour of sunrise", "substitutes": "red spinel, red garnet"}},
+    "Moon": {"beej": "Om Shraam Shreem Shraum Sah Chandraya Namah", "japa": 11000, "stotra": "Shiva Panchakshara "
+             "Stotram or Chandra Kavacham", "rudraksha": "2 mukhi", "colours": "white, silver, cream",
+             "fast": "Monday", "donate": "rice, milk, curd, white cloth, silver",
+             "conduct": "respect and care for your mother; keep regular sleep",
+             "gem": {"stone": "Pearl", "carats": "4-6", "metal": "silver", "finger": "little finger",
+                     "start": "Monday evening, ideally in the bright fortnight", "substitutes": "moonstone"}},
+    "Mars": {"beej": "Om Kraam Kreem Kraum Sah Bhaumaya Namah", "japa": 10000, "stotra": "Hanuman Chalisa or "
+             "Angaraka Stotram", "rudraksha": "3 mukhi", "colours": "red, coral", "fast": "Tuesday",
+             "donate": "red lentils (masoor dal), jaggery, red cloth",
+             "conduct": "support your siblings; channel energy into exercise; avoid anger",
+             "gem": {"stone": "Red Coral", "carats": "6-9", "metal": "gold or copper", "finger": "ring finger",
+                     "start": "Tuesday morning", "substitutes": "carnelian"}},
+    "Mercury": {"beej": "Om Braam Breem Braum Sah Budhaya Namah", "japa": 9000, "stotra": "Vishnu Sahasranama",
+                "rudraksha": "4 mukhi", "colours": "green", "fast": "Wednesday",
+                "donate": "green gram (moong), green vegetables, books for students",
+                "conduct": "be truthful and careful in speech and contracts; respect sisters and aunts",
+                "gem": {"stone": "Emerald", "carats": "3-6", "metal": "gold", "finger": "little finger",
+                        "start": "Wednesday morning", "substitutes": "peridot, green tourmaline"}},
+    "Jupiter": {"beej": "Om Graam Greem Graum Sah Gurave Namah", "japa": 19000, "stotra": "Guru Stotram or "
+                "Dakshinamurti Stotram", "rudraksha": "5 mukhi", "colours": "yellow, gold", "fast": "Thursday",
+                "donate": "chana dal, turmeric, bananas, yellow cloth, books",
+                "conduct": "respect teachers and elders; keep your word; support education",
+                "gem": {"stone": "Yellow Sapphire", "carats": "3-5", "metal": "gold", "finger": "index finger",
+                        "start": "Thursday morning", "substitutes": "yellow topaz, citrine"}},
+    "Venus": {"beej": "Om Draam Dreem Draum Sah Shukraya Namah", "japa": 16000, "stotra": "Shri Suktam or "
+              "Lakshmi Ashtakam", "rudraksha": "6 mukhi", "colours": "white, pastel pink",
+              "fast": "Friday", "donate": "white rice, sugar, curd, perfume, white clothes",
+              "conduct": "respect your partner and women in general; keep your surroundings clean and beautiful",
+              "gem": {"stone": "Diamond", "carats": "0.5-1", "metal": "platinum or silver",
+                      "finger": "middle or little finger", "start": "Friday morning",
+                      "substitutes": "white sapphire, white zircon, opal"}},
+    "Saturn": {"beej": "Om Praam Preem Praum Sah Shanaischaraya Namah", "japa": 23000, "stotra": "Dasharatha "
+               "Shani Stotram or Hanuman Chalisa", "rudraksha": "7 mukhi", "colours": "dark blue, black",
+               "fast": "Saturday", "donate": "black sesame, mustard oil, black urad dal, iron items, blankets",
+               "conduct": "serve the elderly, workers and the needy; be punctual and disciplined",
+               "gem": {"stone": "Blue Sapphire", "carats": "3-5", "metal": "silver or panchdhatu",
+                       "finger": "middle finger", "start": "Saturday evening, after a 3-day trial",
+                       "substitutes": "amethyst, lapis lazuli"}},
+    "Rahu": {"beej": "Om Bhraam Bhreem Bhraum Sah Rahave Namah", "japa": 18000, "stotra": "Durga Saptashati "
+             "(Durga Kavacham) or Rahu Kavacham", "rudraksha": "8 mukhi", "colours": "smoky grey, dark blue",
+             "fast": "Saturday", "donate": "blankets, black or blue cloth, coconut",
+             "conduct": "avoid deception, shortcuts and intoxicants; keep a clean, orderly space", "gem": None},
+    "Ketu": {"beej": "Om Sraam Sreem Sraum Sah Ketave Namah", "japa": 17000, "stotra": "Ganesha Atharvashirsha",
+             "rudraksha": "9 mukhi", "colours": "grey, multicoloured", "fast": "Tuesday",
+             "donate": "multicoloured blanket, sesame, feeding stray dogs",
+             "conduct": "keep up a spiritual practice; finish what you start", "gem": None},
+}
+# Planetary hour whose lord stands in for each node.
+HORA_STAND_IN = {"Rahu": "Saturn", "Ketu": "Mars"}

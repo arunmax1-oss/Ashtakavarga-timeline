@@ -378,3 +378,32 @@ def test_remedy_evaluation():
     up = rev.upcoming(CHART, sched, res["scores"], res["roles"], when)
     assert up == sorted(up, key=lambda r: r["start"]) and all(r["begin_by"] < r["start"] > when for r in up)
     assert len({r["what"] for r in up}) == len(up)  # retrograde re-entries are not repeated
+
+
+def test_remedy_plan():
+    from vedic import remedies as rem
+    from vedic import remedy_plan as rp
+    from vedic.narratives import REMEDY_DETAILS
+    from vedic.shadbala import shadbala
+    assert set(REMEDY_DETAILS) == {"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"}
+    # Saturday 21 Nov 2026: the first daytime hora belongs to Saturn, the weekday lord
+    sr, ss = dt.datetime(2026, 11, 21, 6, 20), dt.datetime(2026, 11, 21, 17, 50)
+    horas = rp.day_horas(dt.date(2026, 11, 21), sr, ss)
+    assert horas[0][0] == "Saturn" and horas[7][0] == "Saturn" and horas[-1][2] == ss
+    assert rp.enemies("Sun", "Saturn") and rp.enemies("Saturn", "Sun") and not rp.enemies("Sun", "Moon")
+    av, sb, sched = compute_ashtakavarga(CHART), shadbala(CHART), vimshottari(CHART)
+    when = dt.datetime(2026, 11, 16)
+    md, ad, _ = active_periods(sched, when)
+    res = rem.build_remedies(CHART, av, (md, ad), when, sb)
+    days = rp.start_days(CHART, av, sched, "Saturn", "Strengthen", dt.date(2026, 11, 16), "Asia/Kolkata",
+                         (12.97, 77.59))
+    assert len(days) == 6 and all(d["date"].weekday() == 5 and len(d["horas"]) == 2 for d in days)
+    assert days == sorted(days, key=lambda d: (-d["score"], d["date"]))
+    plan = rp.gem_plan(CHART, res)
+    assert len(plan["wear"]) <= 2 and not any(rp.enemies(a["planet"], b["planet"])
+                                              for a in plan["wear"] for b in plan["wear"])
+    assert all(res["scores"][g["planet"]]["score"] >= rp.GEM_MIN_SEVERITY for g in plan["wear"])
+    links = rp.life_links(CHART, "Saturn")  # Libra Lagna: rules 4 and 5, sits in 1
+    assert links["houses"] == [4, 5, 1] and "Children" in links["areas"]
+    assert all(r["score"] >= 15 for r in rp.area_focus(CHART, res, "Relationships"))
+    assert any(k == "Gemstone details" for k, _ in rp.guidance_rows("Saturn", "Strengthen", "Blue Sapphire"))
