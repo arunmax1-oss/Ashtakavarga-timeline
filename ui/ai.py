@@ -125,7 +125,19 @@ def converse(system, contents):
         raise RuntimeError(network_message(exc)) from exc
 
 
-def reading_section(topic, facts):
+REMEDY_INSTRUCTIONS = (
+    "You are an experienced, compassionate Vedic astrologer of the Parashari school explaining a client's remedy "
+    "plan. Using ONLY the facts provided (never invent placements, doshas, dates or remedies), write about 450-550 "
+    "words in plain English with these markdown headings: Overview, What needs attention and why, Your remedy plan, "
+    "When to start, Gemstones, Keeping it simple. Explain why each flagged planet is strengthened, pacified or "
+    "balanced, in terms of the life areas it touches; put the free practical steps first; give the start dates "
+    "provided. If no gemstone is recommended, say so plainly and why. Be calm and reassuring: remedies are "
+    "optional supports, not fixes, and nothing bad happens if one is missed. Never encourage expensive rituals or "
+    "fear, and do not give medical, legal or financial instructions."
+)
+
+
+def reading_section(topic, facts, instructions=INSTRUCTIONS, button=None):
     """Draw the 'Personalised reading' section for `topic` from a list of fact lines (markdown is fine)."""
     st.subheader("✍️ Personalised reading (Google Gemini)")
     key = clean_key(_secret("GEMINI_API_KEY"))
@@ -138,10 +150,10 @@ def reading_section(topic, facts):
     models = tuple(dict.fromkeys([model] + FALLBACK_MODELS))
     prompt = f"Topic: {topic}\n\nChart facts:\n" + "\n".join(f"- {f}" for f in facts)
     state = f"ai_{topic}"
-    if st.button(f"Write my {topic.lower()} reading", key=f"btn_{topic}", type="primary"):
+    if st.button(button or f"Write my {topic.lower()} reading", key=f"btn_{topic}", type="primary"):
         with st.spinner("Gemini is writing your reading…"):
             try:
-                st.session_state[state] = (prompt, *_generate(models, key, INSTRUCTIONS, (("user", prompt),)))
+                st.session_state[state] = (prompt, *_generate(models, key, instructions, (("user", prompt),)))
             except RuntimeError as exc:
                 st.error(str(exc))
             except (requests.RequestException, ValueError) as exc:

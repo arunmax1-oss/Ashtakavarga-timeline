@@ -1,5 +1,6 @@
 """Remedies page."""
-from ui.common import (cached_remedy_triggers, cached_start_days, ctx, dt, fmt_date, fmt_span, nar, ordinal, pd, rem,
+from ui import ai
+from ui.common import (jr, cached_remedy_triggers, cached_start_days, ctx, dt, fmt_date, fmt_span, nar, ordinal, pd, rem,
                        rplan, st, today_utc)
 
 c = ctx()
@@ -149,6 +150,99 @@ else:
 absent = [d["name"] for d in doshas if not d["present"]]
 if absent:
     st.caption("Not present: " + ", ".join(absent) + ".")
+
+st.subheader("📿 Remedy tracker")
+st.caption("Log each time you practise a remedy. Entries are saved in the same file as the **Journal** page, so one "
+           "download keeps both. Streamlit Cloud does not keep files: **download after logging** and load the file "
+           "on the Journal page next time. Log life events on the Journal page too, and the tracker shows how they "
+           "felt before and after you started.")
+if "journal" not in st.session_state:
+    st.session_state["journal"] = jr.empty()
+planets_for_log = flagged + [p for p in roles if p not in flagged]
+with st.form("remedy_log_form", clear_on_submit=True):
+    t1, t2, t3, t4 = st.columns([1, 1, 1.3, 0.8])
+    log_date = t1.date_input("Date", value=dt.date.today(), format="DD/MM/YYYY")
+    log_planet = t2.selectbox("Planet", planets_for_log)
+    log_practice = t3.selectbox("Practice", jr.PRACTICES)
+    log_count = t4.number_input("Repetitions", min_value=0, value=108, step=108,
+                                help="Mantra repetitions; ignored for other practices.")
+    log_note = st.text_input("Note (optional)", placeholder="e.g. donated rice at the temple")
+    if st.form_submit_button("Log practice"):
+        st.session_state["journal"] = jr.add_remedy(
+            st.session_state["journal"], log_date, log_planet, log_practice,
+            log_count if log_practice == "Mantra (japa)" else 0, log_note)
+journal = st.session_state["journal"]
+log = jr.remedy_log(journal)
+progress_rows, effects = [], []
+for p in dict.fromkeys(log["planet"]):
+    pr = jr.remedy_progress(journal, p, rplan.REMEDY_DETAILS[p]["japa"],
+                            rplan.WEEKDAYS.index(rplan.REMEDIES[p]["day"]))
+    progress_rows.append({"Planet": p, "Sessions": pr["sessions"], "Days practised": pr["days"],
+                          "Current streak (days)": pr["streak"],
+                          "On its weekday": pr["on_weekday"], "Japa": f"{pr['japa']:,} / {pr['japa_target']:,}",
+                          "Japa course": pr["japa_pct"], "Since": fmt_date(pr["first"]),
+                          "Last": fmt_date(pr["last"])})
+    eff = jr.remedy_effect(journal, p, rplan.life_links(chart, p)["areas"])
+    if eff:
+        effects.append((p, eff))
+if progress_rows:
+    st.dataframe(pd.DataFrame(progress_rows), width="stretch", hide_index=True, column_config={
+        "Japa course": st.column_config.ProgressColumn("Japa course", format="percent", min_value=0, max_value=1)})
+    for p, eff in effects:
+        if eff["ready"]:
+            delta = eff["after"] - eff["before"]
+            st.markdown(f"- **{p}**: journal events in {', '.join(eff['areas'])} averaged {eff['before']:+.1f} before "
+                        f"you started ({eff['n_before']} entries) and **{eff['after']:+.1f}** since "
+                        f"({eff['n_after']} entries): "
+                        + ("things have felt better." if delta > 0.25 else
+                           "things have felt harder; give it time and keep the practical step going."
+                           if delta < -0.25 else "no clear change yet."))
+        else:
+            st.caption(f"{p}: log at least two Journal events in {', '.join(eff['areas']) or 'its life areas'} "
+                       f"before and after {fmt_date(eff['start'])} to see a before/after comparison "
+                       f"(now {eff['n_before']} before, {eff['n_after']} after).")
+    with st.expander("Remedy log"):
+        st.dataframe(log[["date", "planet", "practice", "count", "event"]].rename(columns={
+            "date": "Date", "planet": "Planet", "practice": "Practice", "count": "Repetitions", "event": "Note"}),
+            width="stretch", hide_index=True)
+    st.download_button("📥 Download journal and remedy log (CSV)", jr.to_csv(journal), file_name="astro_journal.csv",
+                       mime="text/csv", key="rem_dl")
+else:
+    st.caption("Nothing logged yet.")
+
+st.divider()
+facts = [f"Today is {dt.date.today():%d %b %Y}",
+         f"Lagna {chart['planets']['Ascendant']['sign']}; Moon sign {chart['planets']['Moon']['sign']}"]
+for p in roles:
+    sc = scores[p]
+    facts.append(f"{p}: {roles[p]['role']} for this Lagna ({roles[p]['why']}"
+                 + (f"; {', '.join(roles[p]['tags'])}" if roles[p]["tags"] else "") + f"); approach "
+                 f"{roles[p]['approach']}; severity {sc['score']}/100 ({sc['level']}); factors: "
+                 + ("; ".join(f"{f['points']:+d} {f['text']}" for f in sc["factors"]) or "none")
+                 + f"; {rplan.life_links(chart, p)['text']}")
+for label, key in (("Do now", "now"), ("Lifelong", "lifelong")):
+    for e in remedies[key]:
+        facts.append(f"{label} remedy for {e['planet']} ({e['priority']} priority, {e['approach']}): reasons "
+                     f"{'; '.join(e['reasons'])}. Practical step: {e['practical']} Devotional: on {e['day']}s "
+                     f"{e['practice']}, mantra {e['mantra']}, donate {e['charity']}."
+                     + (f" Until {fmt_date(e['until'])}." if e["until"] else ""))
+facts += [f"Dosha: {d['name']} {d['status'].lower()}: {d['condition']}"
+          + (f"; cancellations: {', '.join(d['cancellations'])}" if d["cancellations"] else "")
+          + f"; traditional remedy: {d['remedy']}" for d in doshas if d["present"]] or ["No doshas present"]
+facts += [f"Coming up: {t['what']} from {fmt_date(t['start'])} to {fmt_date(t['end'])} ({t['why']}); begin the "
+          f"{t['planet']} remedy by {fmt_date(t['begin_by'])}" for t in triggers]
+for p in flagged:
+    days_ = cached_start_days(chart, c.av, c.schedule, p, roles[p]["approach"], dt.date.today(), c.here_tz,
+                              c.here_place)
+    if days_:
+        facts.append(f"Best start day for {p}: {days_[0]['date']:%A %d %b %Y}"
+                     + (f", in its hora {fmt_span(days_[0]['horas'][0])}" if days_[0]["horas"] else ""))
+facts += [f"Gemstone recommended: {g['stone']} for {g['planet']} ({g['reason']})" for g in plan["wear"]] or \
+    ["No gemstone recommended"]
+facts += [f"Gemstone not recommended: {g['stone']} for {g['planet']} ({g['reason']})" for g in plan["skip"]]
+facts += [f"Practice so far for {r['Planet']}: {r['Sessions']} sessions over {r['Days practised']} days, japa "
+          f"{r['Japa']}" for r in progress_rows]
+ai.reading_section("Remedies", facts, ai.REMEDY_INSTRUCTIONS, button="Explain my remedies")
 
 with st.expander("How the evaluation works (and what is not checked)"):
     st.markdown(

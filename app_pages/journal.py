@@ -10,7 +10,7 @@ tz_name = c.tz_name
 st.markdown("> 💡 Keep a short **journal** of what actually happened, then see how often the app's day ratings "
             "agreed. Over months this shows which parts of the forecast work for you.")
 st.info("Streamlit Cloud does not keep files between sessions, so **download your journal** after adding entries "
-        "and **upload it** next time to continue.")
+        "and **upload it** next time to continue. The same file also holds your remedy log from the Remedies page.")
 if "journal" not in st.session_state:
     st.session_state["journal"] = jr.empty()
 up = st.file_uploader("Load a saved journal (CSV)", type="csv", key="jr_upload")
@@ -33,7 +33,7 @@ with st.form("jr_form", clear_on_submit=True):
         st.session_state["journal"] = jr.add(st.session_state["journal"], e_date, e_area, e_text, e_felt)
 
 jdf = st.session_state["journal"]
-if len(jdf):
+if len(jr.events(jdf)):
     result, summary = jr.evaluate(jdf, lambda d: cached_day(chart, av, schedule, d, tz_name))
     j1, j2, j3 = st.columns(3)
     j1.metric("Entries", summary["entries"])
@@ -48,4 +48,14 @@ if len(jdf):
     st.download_button("📥 Download journal (CSV)", jr.to_csv(jdf), file_name="astro_journal.csv",
                        mime="text/csv")
 else:
-    st.caption("No entries yet.")
+    st.caption("No life events logged yet.")
+rlog = jr.remedy_log(jdf)
+if len(rlog):
+    st.subheader("📿 Remedy log")
+    st.caption("Remedies you logged on the Remedies page; progress and before/after comparisons are shown there.")
+    st.dataframe(rlog[["date", "planet", "practice", "count", "event"]].rename(columns={
+        "date": "Date", "planet": "Planet", "practice": "Practice", "count": "Repetitions", "event": "Note"}),
+        width="stretch", hide_index=True)
+    if not len(jr.events(jdf)):
+        st.download_button("📥 Download journal (CSV)", jr.to_csv(jdf), file_name="astro_journal.csv",
+                           mime="text/csv")

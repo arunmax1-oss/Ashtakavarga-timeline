@@ -71,7 +71,7 @@ the GitHub **tests** check must stay green.
 | `vedic/monthly.py` | Month tab: area-by-area monthly outlook, key dates, eclipses, day calendar, 12-month heatmap |
 | `vedic/career.py` | Job tab: 10th house, D10, Amatyakaraka, suitable fields, job vs business, career timeline |
 | `vedic/compare.py` | Compare positions with other software and diagnose differences |
-| `vedic/journal.py` | Prediction journal (CSV) and agreement with the day ratings |
+| `vedic/journal.py` | Prediction journal and remedy log (one CSV), agreement with the day ratings, remedy progress |
 | `vedic/shadbala.py` | Full six-fold Shadbala (BPHS) for the seven classical planets |
 | `vedic/aspects.py` | Combustion and planetary aspects (graha drishti) |
 | `vedic/remedies.py` | Remedies page: which planets are flagged, why, and the remedy tiers (strengthen or pacify) |

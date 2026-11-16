@@ -407,3 +407,28 @@ def test_remedy_plan():
     assert links["houses"] == [4, 5, 1] and "Children" in links["areas"]
     assert all(r["score"] >= 15 for r in rp.area_focus(CHART, res, "Relationships"))
     assert any(k == "Gemstone details" for k, _ in rp.guidance_rows("Saturn", "Strengthen", "Blue Sapphire"))
+
+
+def test_remedy_tracker():
+    import io
+    from vedic import journal as jr
+    old = io.StringIO("date,area,event,felt\n2026-01-05,Career,Interview,1\n")  # file saved before the log existed
+    df = jr.from_csv(old)
+    assert list(df.columns) == jr.COLUMNS and df["kind"].tolist() == ["event"]
+    for d, felt in (("2026-01-10", -1), ("2026-02-20", 2), ("2026-02-25", 1)):
+        df = jr.add(df, dt.date.fromisoformat(d), "Career", "work", felt)
+    for day in (12, 13, 14):  # Mon 12 Jan 2026 onwards: three days in a row
+        df = jr.add_remedy(df, dt.date(2026, 1, day), "Moon", "Mantra (japa)", 108)
+    df = jr.add_remedy(df, dt.date(2026, 1, 14), "Moon", "Charity", 500, "rice")
+    assert len(jr.events(df)) == 4 and len(jr.remedy_log(df)) == 4
+    pr = jr.remedy_progress(df, "Moon", 11000, 0)
+    assert pr["sessions"] == 4 and pr["days"] == 3 and pr["streak"] == 3 and pr["on_weekday"] == 1
+    assert pr["japa"] == 324  # charity repetitions are not counted as japa
+    eff = jr.remedy_effect(df, "Moon", ["Job", "Relationships"])
+    assert eff["areas"] == ["Career", "Relationships"] and eff["ready"]
+    assert eff["before"] == 0 and eff["after"] == 1.5
+    again = jr.from_csv(io.StringIO(jr.to_csv(df)))  # the download round-trips
+    assert len(jr.remedy_log(again)) == 4 and jr.remedy_progress(again, "Moon", 11000, 0)["japa"] == 324
+    result, summary = jr.evaluate(df, lambda d: {"score": 1, "rating": "Good", "tara": {"name": "Sampat"},
+                                                 "from_moon": 1})
+    assert summary["entries"] == 4  # remedy rows are not judged as predictions
