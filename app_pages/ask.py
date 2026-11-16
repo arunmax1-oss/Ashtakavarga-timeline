@@ -80,6 +80,13 @@ def chart_facts():
         if entries:
             out.append(f"Remedies suggested {part}: " + "; ".join(
                 f"{r['planet']} ({r['priority']} priority: {', '.join(r['reasons'][:2])})" for r in entries))
+    rv = c.remedies
+    out.append("Functional roles for this Lagna (remedy approach, severity 0-100): " + "; ".join(
+        f"{p} {v['role']} ({v['approach']}, {rv['scores'][p]['score']})"
+        + (f" [{', '.join(t.split(' (')[0] for t in v['tags'])}]" if v["tags"] else "") for p, v in rv["roles"].items()))
+    out.append("Doshas: " + ("; ".join(f"{d['name']} {d['status'].lower()}: {d['condition']}"
+                                       + (f" (cancelled by: {', '.join(d['cancellations'])})" if d["cancellations"] else "")
+                                       for d in rv["doshas"] if d["present"]) or "none present"))
     out.append("House meanings: " + "; ".join(f"{h} {HOUSE_INFO[h][1]}" for h in range(1, 13)))
     return out
 

@@ -25,6 +25,7 @@ from vedic import monthly
 from vedic import muhurta as mh
 from vedic import narratives as nar
 from vedic import remedies as rem
+from vedic import remedy_eval as rev
 from vedic import vimshopaka as vim
 from vedic.aspects import aspects_on, combustion
 from vedic.ashtakavarga import compute_ashtakavarga, sav_by_house, sensitive_nakshatras, shodhana, sign_table
@@ -117,6 +118,16 @@ def cached_saturn_nakshatras(chart, start, years=12):
     return segments_by(chart, "Saturn", start, end, lambda lon: int(lon // NAKSHATRA_SPAN), step_days=2)
 
 
+@st.cache_data(show_spinner=False)
+def cached_remedies(chart, av, md, ad, day, sb):
+    return rem.build_remedies(chart, av, (md, ad), day, sb)
+
+
+@st.cache_data(show_spinner=False)
+def cached_remedy_triggers(chart, schedule, scores, roles, day):
+    return rev.upcoming(chart, schedule, scores, roles, day)
+
+
 def today_utc():
     """Midnight UTC today: a stable cache key for once-a-day calculations."""
     return dt.datetime.combine(utc_now().date(), dt.time())
@@ -145,7 +156,7 @@ def ctx():
 # Re-exported for the page modules in app_pages/.
 __all__ = [
     "active_periods", "aspects_on", "AYANAMSHAS", "base64", "bav_heatmap", "bhrigu", "build_chart", "build_report",
-    "cached_area", "CLASSICAL", "cached_bb_windows", "cached_day", "cached_saturn_nakshatras", "cached_geocode", "cached_month", "cached_muhurta", "cached_saturn",
+    "cached_area", "cached_remedies", "cached_remedy_triggers", "CLASSICAL", "rev", "cached_bb_windows", "cached_day", "cached_saturn_nakshatras", "cached_geocode", "cached_month", "cached_muhurta", "cached_saturn",
     "cached_sensitivity", "cached_transits", "cached_week", "cached_year", "calendar", "career", "chara_dasha",
     "chart_svg", "cmp", "combustion", "COMPONENT_LABELS", "compute_ashtakavarga", "compute_core", "ctx",
     "dasha_balance", "dasha_shift_per_minute", "day_forecast", "detect_yogas", "dignity_strength", "dt", "fmt_date",

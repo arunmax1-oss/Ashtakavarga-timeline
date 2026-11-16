@@ -9,9 +9,8 @@ import zoneinfo
 
 import streamlit as st
 
-from ui.common import cached_geocode, cached_sensitivity, compute_core, fmt_date
+from ui.common import cached_geocode, cached_remedies, cached_sensitivity, compute_core, fmt_date, today_utc
 from vedic import narratives as nar
-from vedic import remedies as rem
 from vedic.ashtakavarga import sav_by_house
 from vedic.constants import AYANAMSHAS
 from vedic.dasha import active_periods
@@ -136,7 +135,7 @@ sens_warning = warning(sens_rows)
 if sens_warning:
     st.warning(sens_warning + " Details are on the Planets page.")
 
-remedies = rem.build_remedies(chart, av, (md_now, ad_now), now, sb)
+remedies = cached_remedies(chart, av, md_now, ad_now, today_utc(), sb)
 
 # --------------------------------------------------------------------------------------
 # Hand over to the selected page

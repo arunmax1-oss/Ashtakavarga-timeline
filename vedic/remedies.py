@@ -12,6 +12,7 @@ from .chart import house_from, julian_day, planet_longitude, set_ayanamsha
 from .constants import CLASSICAL_PLANETS, ALL_PLANETS, SIGNS, ordinal
 from .insights import DUSTHANAS, KENDRAS, TRIKONAS, _domain, neecha_bhanga, ruled_houses
 from .narratives import GEM_CAUTION, PLANET_SUPPORT, REMEDIES, dasha_axis
+from .remedy_eval import APPROACH_TEXT, evaluate, level
 
 NATURAL_BENEFICS = ["Moon", "Mercury", "Jupiter", "Venus"]
 _RANK = {"High": 0, "Medium": 1, "Low": 2}
@@ -115,44 +116,70 @@ def saturn_transit(chart, when, max_days=1500):
 # --------------------------------------------------------------------------------------
 # Assembly
 # --------------------------------------------------------------------------------------
-def _entry(chart, planet, reasons, priority, until=None):
+def _entry(chart, planet, reasons, priority, until=None, ev=None):
     r = REMEDIES[planet]
+    role = ev["roles"][planet] if ev else {"role": "", "approach": "Strengthen", "tags": [], "why": ""}
+    strengthen = role["approach"] == "Strengthen"
+    gem_ok = gem_eligible(chart, planet) and strengthen
     return {
         "planet": planet, "priority": priority, "reasons": reasons, "until": until,
+        "score": ev["scores"][planet]["score"] if ev else 0,
+        "factors": ev["scores"][planet]["factors"] if ev else [],
+        "role": role["role"], "approach": role["approach"], "tags": role["tags"], "role_why": role["why"],
         "practical": PLANET_SUPPORT[planet][0].upper() + PLANET_SUPPORT[planet][1:] + ".",
         "day": r["day"], "mantra": r["mantra"], "deity": r["deity"], "practice": r["practice"], "charity": r["charity"],
-        "gem": r["gem"] if gem_eligible(chart, planet) else None,
-        "gem_note": (GEM_CAUTION if gem_eligible(chart, planet) else
+        "gem": r["gem"] if gem_ok else None,
+        "gem_note": (GEM_CAUTION if gem_ok else
                      "No gemstone suggested: this planet has no sign of its own." if not r["gem"] else
+                     f"No gemstone: as a {role['role'].lower()} for your Lagna it should be "
+                     f"{'pacified' if role['approach'] == 'Pacify' else 'balanced'}, not strengthened."
+                     if not strengthen else
                      "No gemstone suggested: this planet rules a difficult house for your Lagna (or no supportive one), "
                      "so strengthening it with a stone is not advised."),
     }
 
 
+ACTIVATION = {"High": 20, "Medium": 12, "Low": 6}
+
+
+def _priority(score, floor=None):
+    p = level(score)
+    p = "Low" if p == "None" else p
+    return min(p, floor, key=_RANK.get) if floor else p
+
+
 def build_remedies(chart, av, schedule_now, when, sb=None):
-    """schedule_now = (mahadasha, antardasha) dicts or (None, None). Returns {'now': [...], 'lifelong': [...]}."""
+    """schedule_now = (mahadasha, antardasha) dicts or (None, None).
+
+    Returns {'now', 'lifelong'} remedy entries plus the evaluation behind them: 'roles' (functional nature),
+    'doshas' and 'scores' (severity 0-100 with factors). Priority follows the severity score; a planet that is
+    active now adds activation points on top of its birth-chart score."""
     md, ad = schedule_now
+    ev = evaluate(chart, av, sb)
     lifelong, natal = [], {}
     for planet in ALL_PLANETS:
-        reasons, priority = natal_flags(chart, av, planet, sb)
-        natal[planet] = (reasons, priority)
-        if reasons:
-            lifelong.append(_entry(chart, planet, reasons, priority))
+        flags, _ = natal_flags(chart, av, planet, sb)
+        reasons = flags + [f"Part of {d['name']}" + (" (eased by cancellations)" if d["cancelled"] else "")
+                           for d in ev["doshas"] if planet in d["planets"]]
+        natal[planet] = reasons
+        score = ev["scores"][planet]["score"]
+        if reasons and score >= 10:
+            lifelong.append(_entry(chart, planet, reasons, _priority(score), ev=ev))
 
-    now = {}
+    now, active = {}, {}
 
     def add(planet, reason, priority, until):
+        active[planet] = active.get(planet, 0) + ACTIVATION[priority]
         if planet in now:
             e = now[planet]
             e["reasons"].insert(0, reason) if reason not in e["reasons"] else None
-            e["priority"] = min(e["priority"], priority, key=_RANK.get)
             e["until"] = max(e["until"], until)
         else:
-            base, natal_priority = natal[planet]
-            if natal_priority in ("High", "Medium"):
-                priority = "High"  # a period or transit of a planet that is already weak at birth
-            now[planet] = _entry(chart, planet, [reason] + [f"Birth chart: {b[0].lower()}{b[1:]}" for b in base],
-                                 priority, until)
+            base = natal[planet]
+            e = now[planet] = _entry(chart, planet, [reason] + [f"Birth chart: {b[0].lower()}{b[1:]}" for b in base],
+                                     "Low", until, ev=ev)
+        e["score"] = min(100, ev["scores"][planet]["score"] + active[planet])
+        e["priority"] = _priority(e["score"], floor=priority)
 
     if md and ad:
         add(md["lord"], f"Runs your current main period (Mahadasha) until {md['end']:%b %Y}", "Medium", md["end"])
@@ -161,15 +188,16 @@ def build_remedies(chart, av, schedule_now, when, sb=None):
         if tone == "warning" and md["lord"] != ad["lord"]:
             e = now[ad["lord"]]
             e["reasons"].append(f"The two period lords are in a tense relationship ({axis}), so this sub-period needs more care")
-            e["priority"] = "High"
+            e["score"] = min(100, e["score"] + 15)
+            e["priority"] = _priority(e["score"], floor="Medium")
 
     sat = saturn_transit(chart, when)
     if sat:
         add("Saturn", f"{sat['name']}: Saturn is passing through {sat['sign']} until about {sat['until']:%b %Y} "
                       "(it can briefly return when retrograde)", sat["priority"], sat["until"])
 
-    order = lambda e: (_RANK[e["priority"]], ALL_PLANETS.index(e["planet"]))
-    return {"now": sorted(now.values(), key=order), "lifelong": sorted(lifelong, key=order)}
+    order = lambda e: (_RANK[e["priority"]], -e["score"], ALL_PLANETS.index(e["planet"]))  # noqa: E731
+    return {"now": sorted(now.values(), key=order), "lifelong": sorted(lifelong, key=order), **ev}
 
 
 # --------------------------------------------------------------------------------------
@@ -177,7 +205,8 @@ def build_remedies(chart, av, schedule_now, when, sb=None):
 # --------------------------------------------------------------------------------------
 def table_rows(entries):
     return [{
-        "Planet": e["planet"], "Priority": e["priority"], "Why it is flagged": "; ".join(e["reasons"]),
+        "Planet": e["planet"], "Priority": e["priority"], "Severity": e["score"], "Approach": e["approach"],
+        "Why it is flagged": "; ".join(e["reasons"]),
         "Simple step": e["practical"], "Day": e["day"],
         "Applies until": f"{e['until']:%d %b %Y}" if e["until"] else "Lifelong",
     } for e in entries]
@@ -186,12 +215,25 @@ def table_rows(entries):
 def entry_markdown(e):
     why = "\n".join(f"- {r}" for r in e["reasons"])
     gem = f"**{e['gem']}.** {e['gem_note']}" if e["gem"] else e["gem_note"]
-    return (f"**Why this planet**\n{why}\n\n"
+    role = (f"**Role for your Lagna:** {e['role']}" + (f" · {', '.join(e['tags'])}" if e["tags"] else "")
+            + f". {e['role_why']}\n\n**Approach: {e['approach']}.** {APPROACH_TEXT[e['approach']]}\n\n"
+            if e.get("role") else "")
+    pacify = e.get("approach") == "Pacify"
+    devotional = (f"On {e['day']}s give **{e['charity']}** in charity and serve those the planet signifies; chant "
+                  f"*{e['mantra']}* (traditionally 108 times); {e['practice']}. Deity: {e['deity']}." if pacify else
+                  f"On {e['day']}s: {e['practice']}; chant *{e['mantra']}* (traditionally 108 times); "
+                  f"give {e['charity']}. Deity: {e['deity']}.")
+    factors = ""
+    if e.get("factors"):
+        factors = ("\n**How the severity score is built** (birth chart"
+                   + ("; being active now adds points on top" if e.get("until") else "") + ")\n"
+                   + "\n".join(f"- {'+' if x['points'] > 0 else ''}{x['points']}: {x['text']}" for x in e["factors"])
+                   + "\n")
+    return (f"{role}**Why this planet**\n{why}\n\n"
             f"| Tier | What to do |\n|---|---|\n"
             f"| 1. Practical (start here) | {e['practical']} |\n"
-            f"| 2. Devotional | On {e['day']}s: {e['practice']}; chant *{e['mantra']}* (traditionally 108 times); "
-            f"give {e['charity']}. Deity: {e['deity']}. |\n"
-            f"| 3. Gemstone | {gem} |\n")
+            f"| 2. {'Pacifying' if pacify else 'Devotional'} | {devotional} |\n"
+            f"| 3. Gemstone | {gem} |\n{factors}")
 
 
 def remedies_markdown(result):

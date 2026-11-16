@@ -351,3 +351,30 @@ def test_life_areas():
     assert all(t["planet"] in ("Jupiter", "Saturn", "Rahu") for t in tr)
     for a, b in la.double_transit(CHART, 7, start):
         assert a < b
+
+
+def test_remedy_evaluation():
+    from vedic import remedies as rem
+    from vedic import remedy_eval as rev
+    from vedic.shadbala import shadbala
+    roles = rev.functional_roles(CHART)  # Libra Lagna
+    assert roles["Saturn"]["role"] == "Yogakaraka" and roles["Venus"]["role"] == "Functional benefic"
+    assert roles["Jupiter"]["role"] == "Functional malefic" and roles["Sun"]["approach"] == "Pacify"
+    assert any("Badhaka" in t for t in roles["Sun"]["tags"]) and any("Maraka" in t for t in roles["Mars"]["tags"])
+    assert roles["Rahu"]["approach"] == roles["Ketu"]["approach"] == "Pacify"
+    ds = rev.doshas(CHART)
+    assert len(ds) == 10 and {d["status"] for d in ds} <= {"Not present", "Present", "Present, eased"}
+    assert next(d for d in ds if d["name"] == "Grahan dosha")["present"]  # Moon with Rahu in Aries
+    av, sb, sched = compute_ashtakavarga(CHART), shadbala(CHART), vimshottari(CHART)
+    when = dt.datetime(2026, 11, 16)
+    md, ad, _ = active_periods(sched, when)
+    res = rem.build_remedies(CHART, av, (md, ad), when, sb)
+    for n, sc in res["scores"].items():
+        assert 0 <= sc["score"] <= 100 and sc["level"] == rev.level(sc["score"])
+    for e in res["now"] + res["lifelong"]:
+        assert e["approach"] in ("Strengthen", "Pacify", "Balance")
+        if e["gem"]:
+            assert e["approach"] == "Strengthen"
+    up = rev.upcoming(CHART, sched, res["scores"], res["roles"], when)
+    assert up == sorted(up, key=lambda r: r["start"]) and all(r["begin_by"] < r["start"] > when for r in up)
+    assert len({r["what"] for r in up}) == len(up)  # retrograde re-entries are not repeated
